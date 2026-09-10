@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import apiRouter from './routes/api.js';
 
@@ -8,13 +9,17 @@ dotenv.config();
 
 const app = express();
 
-// Resolve frontend dist path — works in both tsx (dev) and tsc (prod) builds.
-// backend/src/app.ts → go up 2 levels to project root → frontend/dist
-const FRONTEND_DIST = path.resolve(process.cwd(), 'frontend', 'dist');
+// ── Fix 1: Robust FRONTEND_DIST path resolution ────────────────
+// Correctly locates frontend/dist whether backend is started from
+// the project root or directly from the backend directory.
+const rootDist = path.resolve(process.cwd(), 'frontend', 'dist');
+const parentDist = path.resolve(process.cwd(), '..', 'frontend', 'dist');
+const FRONTEND_DIST = fs.existsSync(rootDist) ? rootDist : parentDist;
 
 // Middleware
+const corsOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({
-  origin: '*',
+  origin: corsOrigin.includes(',') ? corsOrigin.split(',').map(s => s.trim()) : corsOrigin,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -45,9 +50,10 @@ app.get('*', (_req: Request, res: Response) => {
   res.sendFile(indexPath, (err) => {
     if (err) {
       // Frontend not built yet — return a helpful message instead of crashing
+      // Fix 3: Relative /api/health URL rather than hardcoded localhost
       res.status(200).json({
         message: 'ClimateShield API is running. Build the frontend with: npm run build --prefix frontend',
-        api: 'http://localhost:5000/api/health'
+        api: '/api/health'
       });
     }
   });

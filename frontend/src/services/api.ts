@@ -3,7 +3,14 @@
 //  If the backend is unreachable, all requests use mock data.
 // ─────────────────────────────────────────────────────────────
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// ── Fix 2: Environment-Aware API Base URL Resolution ──────────
+// 1. Explicit VITE_API_BASE_URL (for separate frontend/backend deployments like Vercel + Render)
+// 2. Production same-origin default: '/api' (when frontend and backend share an origin)
+// 3. Local development fallback: 'http://localhost:5000/api'
+const envBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+const BASE_URL = envBaseUrl
+  ? envBaseUrl.replace(/\/+$/, '')
+  : (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 // Singleton: undefined = not yet probed, true/false = known state
 let _offlineMode: boolean | undefined = undefined;

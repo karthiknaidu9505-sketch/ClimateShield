@@ -439,38 +439,54 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Monitored Ground Telemetry Nodes Strip */}
+      {/* 4. Monitored Ground Telemetry Nodes Strip (Fix 4: Live Telemetry from /api/locations) */}
       <section aria-label="Field Telemetry Status" className="bg-surface-container-lowest p-space-md rounded-xl border border-[#e2e8df] shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-[#e2e8df]">
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-primary" />
             <h3 className="font-headline text-sm font-bold text-on-surface">Monitored Ground Telemetry Nodes</h3>
-            <span className="text-xs text-on-surface-variant font-medium">(24 Sensors Online • 2 Disconnected)</span>
+            <span className="text-xs text-on-surface-variant font-medium">
+              ({locations.length} Locations Monitored • Open-Meteo Synced)
+            </span>
           </div>
           <span className="text-xs font-bold text-primary">Hydrology Network Synchronized</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-          <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-            <span className="text-[10px] text-on-surface-variant uppercase font-bold block">Culvert 9 Inundation</span>
-            <span className="font-headline font-bold text-sm text-error">42 cm (Critical)</span>
-            <span className="text-[10px] text-on-surface-variant block mt-0.5">Rate: +4cm/15min</span>
-          </div>
-          <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-            <span className="text-[10px] text-on-surface-variant uppercase font-bold block">Market St Gutter Depth</span>
-            <span className="font-headline font-bold text-sm text-tertiary">29 cm (Elevated)</span>
-            <span className="text-[10px] text-on-surface-variant block mt-0.5">Rate: +2cm/15min</span>
-          </div>
-          <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-            <span className="text-[10px] text-on-surface-variant uppercase font-bold block">Quad Retention Swale</span>
-            <span className="font-headline font-bold text-sm text-primary">10 cm (Nominal)</span>
-            <span className="text-[10px] text-on-surface-variant block mt-0.5">Rate: 0cm/15min</span>
-          </div>
-          <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-            <span className="text-[10px] text-on-surface-variant uppercase font-bold block">Substation 4B Drain</span>
-            <span className="font-headline font-bold text-sm text-primary">5 cm (Normal)</span>
-            <span className="text-[10px] text-on-surface-variant block mt-0.5">Rate: -1cm/15min</span>
-          </div>
+          {locations.length > 0 ? (
+            locations.slice(0, 4).map((loc) => {
+              const env = loc.environmental;
+              const levelColor =
+                loc.riskLevel === 'CRITICAL' ? 'text-error' :
+                loc.riskLevel === 'HIGH' ? 'text-tertiary' :
+                loc.riskLevel === 'MEDIUM' ? 'text-amber-600' : 'text-primary';
+
+              return (
+                <div
+                  key={loc.id}
+                  onClick={() => navigate(`/risk/${loc.id}`)}
+                  className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df] hover:border-primary/40 transition-colors cursor-pointer"
+                  title={`View risk telemetry for ${loc.name}`}
+                >
+                  <span className="text-[10px] text-on-surface-variant uppercase font-bold block truncate">
+                    {loc.name}
+                  </span>
+                  <span className={`font-headline font-bold text-sm ${levelColor} block truncate`}>
+                    {env?.waterLevelCm !== undefined ? `${env.waterLevelCm} cm (${loc.riskLevel})` : 'No live reading'}
+                  </span>
+                  <span className="text-[10px] text-on-surface-variant block mt-0.5 truncate">
+                    {env?.rainfallMm !== undefined
+                      ? `Rain: ${env.rainfallMm}mm • ${env.riseRate || env.waterLevelTrend || 'Nominal'}`
+                      : 'No live reading'}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-2 sm:col-span-4 text-center py-3 text-xs text-on-surface-variant">
+              No live monitored telemetry nodes currently available
+            </div>
+          )}
         </div>
       </section>
     </div>
