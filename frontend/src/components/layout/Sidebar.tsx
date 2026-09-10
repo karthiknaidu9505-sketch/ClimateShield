@@ -74,15 +74,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeIncidentId = 'inc-railwa
       {/* Bottom Telemetry & Profile Section */}
       <div className="flex flex-col bg-surface-container-low border-t border-[#e2e8df]">
         {/* Telemetry Indicator */}
-        <div className="px-space-md py-2 flex items-center justify-between border-b border-[#e2e8df]">
+        <div className="px-space-md py-2 flex items-center justify-between border-b border-[#e2e8df]" title="Backend weather sync with Open-Meteo">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Live Telemetry</span>
+            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Weather Feed</span>
           </div>
-          <span className="text-[11px] text-primary font-bold">Nominal</span>
+          <span className="text-[11px] text-primary font-bold">Active (Open-Meteo)</span>
         </div>
 
         {/* Operations Setting / Action */}
@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeIncidentId = 'inc-railwa
             className="flex items-center gap-2 px-space-sm py-1.5 rounded text-xs text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"
           >
             <Settings className="w-3.5 h-3.5" />
-            <span>Telemetry Config</span>
+            <span>System Settings</span>
           </NavLink>
           <button
             onClick={handleLogout}

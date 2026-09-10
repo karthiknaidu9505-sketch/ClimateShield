@@ -105,6 +105,11 @@ export const IncidentResponse: React.FC = () => {
 
   const handleResolveIncident = async () => {
     if (!incident) return;
+    const allCompleted = incident.actions.length > 0 && incident.actions.every(a => a.isCompleted);
+    if (!allCompleted) {
+      alert('Cannot mark incident as RESOLVED: All mandatory protocol response actions must be completed first.');
+      return;
+    }
     setIsResolving(true);
 
     try {
@@ -143,7 +148,7 @@ export const IncidentResponse: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center text-on-surface-variant text-sm font-semibold">
-          Loading incident operational telemetry...
+          Loading incident operational state...
         </div>
       </div>
     );
@@ -164,13 +169,16 @@ export const IncidentResponse: React.FC = () => {
     );
   }
 
+  const allActionsCompleted = incident.actions.length > 0 && incident.actions.every(a => a.isCompleted);
+  const isResolved = incident.status === 'RESOLVED';
+
   // 5 Step Stepper Logic
   const steps: { key: IncidentStatus; label: string; time: string; sub: string }[] = [
-    { key: 'RISK_DETECTED', label: 'Risk Detected', time: '10:38 AM', sub: 'Sensor Grid' },
-    { key: 'ALERT_SENT', label: 'Alert Sent', time: '10:40 AM', sub: 'Dispatch Auto' },
-    { key: 'TEAM_ASSIGNED', label: 'Team Assigned', time: '10:42 AM', sub: 'Rapid Unit' },
-    { key: 'RESPONSE_IN_PROGRESS', label: 'Response In Progress', time: 'Current State', sub: 'Deploying' },
-    { key: 'RESOLVED', label: 'Resolution & Review', time: 'Pending', sub: 'Final Safe Cert' }
+    { key: 'RISK_DETECTED', label: 'Risk Detected', time: new Date(incident.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), sub: 'Risk Engine' },
+    { key: 'ALERT_SENT', label: 'Alert Sent', time: 'Auto Dispatch', sub: 'Dispatch Auto' },
+    { key: 'TEAM_ASSIGNED', label: 'Team Assigned', time: incident.responseTeam ? incident.responseTeam.name : 'Pending', sub: 'Rapid Unit' },
+    { key: 'RESPONSE_IN_PROGRESS', label: 'Response In Progress', time: isResolved ? 'Completed' : 'Active State', sub: 'Deploying' },
+    { key: 'RESOLVED', label: 'Resolution & Review', time: isResolved && incident.resolvedAt ? new Date(incident.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : isResolved ? 'Verified' : 'Pending', sub: 'Audit Cert' }
   ];
 
   const statusOrder: Record<IncidentStatus, number> = {
@@ -182,6 +190,8 @@ export const IncidentResponse: React.FC = () => {
   };
 
   const currentStepNum = statusOrder[incident.status] || 4;
+
+  const currentWaterLevel = incident.waterLevelAtIncident ?? (incident.location?.environmental?.waterLevelCm ?? 0);
 
   return (
     <div className="p-space-lg lg:p-margin-desktop flex flex-col gap-space-lg max-w-[1720px] mx-auto w-full">
@@ -206,13 +216,13 @@ export const IncidentResponse: React.FC = () => {
                 : 'bg-error text-on-error'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${incident.status === 'RESOLVED' ? 'bg-white' : 'bg-on-error animate-ping'}`} />
-              {incident.status === 'RESOLVED' ? 'RESOLVED' : `${incident.severity} SEVERITY`}
+              {incident.status === 'RESOLVED' ? 'RESOLVED' : `${incident.severity} SEVERITY • ${incident.status.replace(/_/g, ' ')}`}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-on-surface-variant bg-surface-container-high px-3 py-1.5 rounded border border-[#e2e8df]">
-              Live Stream Connected
+              Database Synchronized
             </span>
             <button
               type="button"
@@ -220,7 +230,7 @@ export const IncidentResponse: React.FC = () => {
               className="flex items-center gap-1.5 bg-surface-container-low hover:bg-surface-container-high text-on-surface px-3 py-1.5 rounded text-xs font-semibold border border-[#e2e8df] transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5 text-primary" />
-              <span>Sync Telemetry</span>
+              <span>Sync State</span>
             </button>
           </div>
         </div>
@@ -237,22 +247,22 @@ export const IncidentResponse: React.FC = () => {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg border border-[#e2e8df] mt-1">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-primary" />
-            <span>Logged: <strong className="text-on-surface font-semibold">Today, 10:42 AM</strong></span>
+            <span>Logged: <strong className="text-on-surface font-semibold">{new Date(incident.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
           </div>
           <span>•</span>
           <div className="flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-primary" />
-            <span>Monitored Zone: <strong className="text-on-surface font-semibold">{incident.location?.sector || 'Sector 4B'}</strong></span>
+            <span>Monitored Zone: <strong className="text-on-surface font-semibold">{incident.location?.sector || 'District Core'}</strong></span>
           </div>
           <span>•</span>
           <div className="flex items-center gap-1.5">
             <Waves className="w-3.5 h-3.5 text-error" />
-            <span>Live Water Level: <strong className="text-error font-semibold">{incident.waterLevelAtIncident || 42}cm Inundation</strong></span>
+            <span>Modeled Depth: <strong className="text-error font-semibold">{currentWaterLevel}cm</strong></span>
           </div>
           <span>•</span>
           <div className="flex items-center gap-1.5">
             <ShieldAlert className="w-3.5 h-3.5 text-tertiary" />
-            <span>Risk Index: <strong className="text-on-surface font-semibold">{incident.riskScore}/100</strong> (Critical)</span>
+            <span>Risk Index: <strong className="text-on-surface font-semibold">{incident.riskScore}/100</strong> ({incident.severity})</span>
           </div>
         </div>
       </div>
@@ -411,7 +421,7 @@ export const IncidentResponse: React.FC = () => {
                 rows={2}
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Add operational field update, telemetry correction, or sensor reading..."
+                placeholder="Add operational field update, response log, or mitigation note..."
                 className="w-full bg-surface-container-low text-on-surface text-xs p-2.5 rounded-lg border border-[#e2e8df] focus:outline-none focus:border-primary resize-none"
               />
               <div className="flex justify-between items-center">
@@ -438,7 +448,8 @@ export const IncidentResponse: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResolveIncident}
-                disabled={isResolving || incident.status === 'RESOLVED'}
+                disabled={isResolving || incident.status === 'RESOLVED' || !allActionsCompleted}
+                title={!allActionsCompleted ? 'Complete all protocol response actions before resolving' : 'Mark incident resolved'}
                 className="flex items-center gap-2 bg-primary hover:bg-primary-container text-on-primary px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-60"
               >
                 <CheckCircle className="w-4 h-4" />
@@ -469,39 +480,43 @@ export const IncidentResponse: React.FC = () => {
         {/* Right Column (40% ~ 5 cols) */}
         <div className="lg:col-span-5 flex flex-col gap-space-lg">
           
-          {/* Live Telemetry Snapshot Card */}
+          {/* Catchment Hydrology Model & Weather Telemetry Snapshot Card */}
           <div className="bg-surface-container-lowest p-space-lg rounded-xl border border-[#e2e8df] shadow-sm flex flex-col gap-2">
             <div className="flex items-center justify-between pb-1 border-b border-[#e2e8df]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-outline">Sensor Grid 4B Telemetry</span>
-              <span className="flex items-center gap-1 text-[11px] font-bold text-primary">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-outline">Catchment Hydrology Model &amp; Weather Data</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-primary" title="Weather data from Open-Meteo">
                 <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                <span>Live Ingestion</span>
+                <span>Open-Meteo Synced</span>
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-                <span className="text-[9px] uppercase font-bold text-outline block">Water Depth</span>
-                <span className="font-headline text-xl font-bold text-error mt-0.5 block">{incident.waterLevelAtIncident || 42} cm</span>
-                <span className="text-[10px] text-tertiary font-semibold">Stabilizing</span>
+                <span className="text-[9px] uppercase font-bold text-outline block" title="Modeled hydrological estimate">Modeled Depth</span>
+                <span className="font-headline text-xl font-bold text-error mt-0.5 block">{currentWaterLevel} cm</span>
+                <span className="text-[10px] text-tertiary font-semibold">{incident.location?.environmental?.waterLevelTrend || 'Monitored'}</span>
               </div>
               <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
-                <span className="text-[9px] uppercase font-bold text-outline block">Precipitation</span>
-                <span className="font-headline text-xl font-bold text-on-surface mt-0.5 block">{incident.rainfallAtIncident || 85} mm/h</span>
-                <span className="text-[10px] text-error font-semibold">Torrential</span>
+                <span className="text-[9px] uppercase font-bold text-outline block" title="Source: Open-Meteo">Precipitation</span>
+                <span className="font-headline text-xl font-bold text-on-surface mt-0.5 block">
+                  {incident.rainfallAtIncident ?? (incident.location?.environmental?.rainfallMm ?? 0)} mm/h
+                </span>
+                <span className="text-[10px] text-primary font-semibold">Open-Meteo</span>
               </div>
               <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df]">
                 <span className="text-[9px] uppercase font-bold text-outline block">Outflow</span>
-                <span className="font-headline text-xl font-bold text-tertiary mt-0.5 block">18% cap.</span>
-                <span className="text-[10px] text-error font-semibold">Constricted</span>
+                <span className="font-headline text-xl font-bold text-tertiary mt-0.5 block">
+                  {incident.location?.environmental?.drainageFlowPct ?? 25}% cap.
+                </span>
+                <span className="text-[10px] text-on-surface-variant font-semibold">Modeled</span>
               </div>
             </div>
 
             {/* Depth Trend Sparkline */}
             <div className="bg-surface-container-low p-2.5 rounded-lg border border-[#e2e8df] mt-2">
               <div className="flex justify-between text-[10px] text-on-surface-variant font-bold mb-1">
-                <span>Inundation Depth Trend (Last 60 mins)</span>
-                <span className="text-error">+27cm change</span>
+                <span>Modeled Inundation Depth Curve</span>
+                <span className="text-on-surface-variant font-semibold">Trend: {incident.location?.environmental?.waterLevelTrend || 'Stable'}</span>
               </div>
               <div className="w-full h-10">
                 <svg className="w-full h-full text-error" fill="none" preserveAspectRatio="none" viewBox="0 0 300 48">
@@ -510,9 +525,9 @@ export const IncidentResponse: React.FC = () => {
                 </svg>
               </div>
               <div className="flex justify-between text-[9px] text-on-surface-variant mt-1">
-                <span>10:00 AM (15cm)</span>
-                <span>10:25 AM (28cm)</span>
-                <span className="text-error font-bold">10:45 AM ({incident.waterLevelAtIncident || 42}cm)</span>
+                <span>T-60m</span>
+                <span>T-30m</span>
+                <span className="text-error font-bold">Current ({currentWaterLevel}cm)</span>
               </div>
             </div>
           </div>

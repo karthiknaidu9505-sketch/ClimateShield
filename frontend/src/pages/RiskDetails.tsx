@@ -87,7 +87,7 @@ export const RiskDetails: React.FC = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-2 text-on-surface-variant">
           <Activity className="w-8 h-8 text-primary animate-spin" />
-          <span className="text-sm font-semibold">Synthesizing hydraulic telemetry...</span>
+          <span className="text-sm font-semibold">Loading location risk assessment...</span>
         </div>
       </div>
     );
@@ -107,12 +107,13 @@ export const RiskDetails: React.FC = () => {
     );
   }
 
+  const hasEnv = Boolean(location.environmental);
   const env = location.environmental || {
-    rainfallMm: 85,
-    waterLevelCm: 42,
-    drainageFlowPct: 18,
-    waterLevelTrend: 'RISING',
-    riseRate: '+4cm / 15min'
+    rainfallMm: 0,
+    waterLevelCm: 0,
+    drainageFlowPct: 50,
+    waterLevelTrend: 'STABLE',
+    riseRate: null
   };
 
   return (
@@ -128,9 +129,9 @@ export const RiskDetails: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Risk Map</span>
             </Link>
-            <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-1 rounded border border-[#e2e8df] shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-error animate-ping" />
-              <span className="text-xs font-bold text-on-surface uppercase">Live Telemetry Synchronized</span>
+            <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-1 rounded border border-[#e2e8df] shadow-sm" title="Weather data ingested from Open-Meteo via backend">
+              <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+              <span className="text-xs font-bold text-on-surface uppercase">Weather Ingestion (Open-Meteo) &amp; Hydrologic Model</span>
             </div>
           </div>
 
@@ -140,19 +141,21 @@ export const RiskDetails: React.FC = () => {
                 <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
                   {location.name}
                 </h1>
-                <span className="inline-flex items-center gap-1.5 bg-error text-on-error px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider shadow-sm">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider shadow-sm ${
+                  location.riskLevel === 'CRITICAL' ? 'bg-error text-on-error' : location.riskLevel === 'HIGH' ? 'bg-tertiary text-on-tertiary' : 'bg-primary text-on-primary'
+                }`}>
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>{location.riskLevel} RISK</span>
                 </span>
                 <span className="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded text-xs font-mono font-semibold">
-                  Asset ID: INF-RD-4092
+                  Asset ID: {location.id}
                 </span>
                 <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-xs font-semibold">
                   {location.sector}
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant mt-1">
-                Flood vulnerability &amp; environmental assessment &bull; Last evaluated 2 minutes ago
+                Flood vulnerability &amp; hydrological assessment &bull; {location.environmental?.timestamp ? `Ingested: ${new Date(location.environmental.timestamp).toLocaleTimeString()}` : 'Backend Evaluated'}
               </p>
             </div>
 
@@ -169,7 +172,7 @@ export const RiskDetails: React.FC = () => {
                 className="inline-flex items-center gap-1.5 bg-surface-container-lowest hover:bg-surface-container-high text-on-surface px-3 py-1.5 rounded text-xs font-semibold border border-[#e2e8df] transition-colors shadow-sm"
               >
                 <Camera className="w-3.5 h-3.5" />
-                <span>Feed Cam #4092</span>
+                <span>Station Camera</span>
               </button>
             </div>
           </div>
@@ -191,14 +194,22 @@ export const RiskDetails: React.FC = () => {
                     Dynamic Hydraulic Risk Score
                   </span>
                   <div className="flex items-baseline gap-2 mt-1">
-                    <span className="font-headline text-5xl font-bold text-error tracking-tighter leading-none">
+                    <span className={`font-headline text-5xl font-bold tracking-tighter leading-none ${
+                      location.riskLevel === 'CRITICAL' ? 'text-error' : location.riskLevel === 'HIGH' ? 'text-tertiary' : 'text-primary'
+                    }`}>
                       {location.riskScore}
                     </span>
                     <span className="text-xl text-outline font-normal">/ 100</span>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 mt-2 bg-error-container text-on-error-container px-2.5 py-1 rounded text-xs font-bold border border-error/20">
+                  <div className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded text-xs font-bold border ${
+                    location.riskLevel === 'CRITICAL'
+                      ? 'bg-error-container text-on-error-container border-error/20'
+                      : location.riskLevel === 'HIGH'
+                      ? 'bg-tertiary-fixed text-on-tertiary-fixed border-tertiary/20'
+                      : 'bg-surface-container-high text-on-surface border-outline-variant/40'
+                  }`}>
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>CRITICAL FLOOD RISK</span>
+                    <span>{location.riskLevel} FLOOD RISK</span>
                   </div>
                 </div>
 
@@ -211,14 +222,13 @@ export const RiskDetails: React.FC = () => {
                   {/* Meter gradient line */}
                   <div className="relative w-full h-3 rounded-full bg-surface-container overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-primary via-tertiary-fixed-dim to-error" />
-                    {/* Indicator marker pin at 87% */}
                     <div 
                       className="absolute top-0 bottom-0 right-0 bg-surface-container-lowest/80" 
                       style={{ width: `${Math.max(0, 100 - location.riskScore)}%` }} 
                     />
                   </div>
-                  <div className="flex items-center justify-end text-error gap-1 text-xs font-bold">
-                    <span>+34 pts in 30m</span>
+                  <div className="flex items-center justify-end text-on-surface-variant gap-1 text-xs font-semibold">
+                    <span>Engine Score: {location.riskScore} / 100</span>
                   </div>
                 </div>
               </div>
@@ -226,18 +236,18 @@ export const RiskDetails: React.FC = () => {
               <div className="mt-space-md p-3 bg-surface-container-low rounded-lg border border-[#e2e8df] flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-tertiary shrink-0 mt-0.5" />
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Risk score calculated by the backend risk engine at <strong className="text-on-surface">{location.riskScore}/100</strong> (30% Rainfall + 30% Water Level + 20% Drainage + 20% Historical events). Water ingress rapidly accelerating.
+                  Risk score calculated by the backend risk engine at <strong className="text-on-surface">{location.riskScore}/100</strong> (30% Rainfall + 30% Water Level + 20% Drainage + 20% Historical events).
                 </p>
               </div>
             </div>
 
-            {/* Card 2: Environmental Telemetry (4 Grid Cards) */}
+            {/* Card 2: Environmental Conditions & Modeled Hydrology (4 Grid Cards) */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h2 className="font-headline text-sm font-bold text-on-surface uppercase tracking-wider">
-                  Environmental Telemetry
+                  Environmental Conditions &amp; Modeled Hydrology
                 </h2>
-                <span className="text-[11px] text-outline">Sensor Array Active &bull; 4/4 Online</span>
+                <span className="text-[11px] text-outline">Weather: Open-Meteo &bull; Hydrology: Modeled</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
@@ -246,16 +256,24 @@ export const RiskDetails: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-1.5">
                       <Waves className="w-4 h-4 text-primary" />
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Precipitation Rate</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant" title="Source: Open-Meteo">Precipitation Rate</span>
                     </div>
-                    <span className="bg-error-container text-on-error-container px-2 py-0.5 rounded text-[10px] font-bold">Critical</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      env.rainfallMm >= 15 ? 'bg-error-container text-on-error-container' : env.rainfallMm > 0 ? 'bg-primary-container text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
+                    }`}>
+                      {env.rainfallMm >= 15 ? 'Heavy' : env.rainfallMm >= 2 ? 'Moderate' : env.rainfallMm > 0 ? 'Light' : 'Clear'}
+                    </span>
                   </div>
                   <div className="my-2.5">
-                    <div className="font-headline text-2xl font-bold text-on-surface">{env.rainfallMm} mm/h</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">Heavy convective cloudburst</div>
+                    <div className="font-headline text-2xl font-bold text-on-surface">
+                      {hasEnv ? `${env.rainfallMm} mm/h` : 'No live reading'}
+                    </div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">
+                      {env.rainfallMm >= 15 ? 'Convective downpour' : env.rainfallMm > 0 ? 'Surface precipitation (Open-Meteo)' : 'No active rainfall recorded'}
+                    </div>
                   </div>
                   <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-error h-full rounded-full" style={{ width: `${Math.min(100, (env.rainfallMm / 100) * 100)}%` }} />
+                    <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(100, (env.rainfallMm / 100) * 100)}%` }} />
                   </div>
                 </div>
 
@@ -264,13 +282,21 @@ export const RiskDetails: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-1.5">
                       <Waves className="w-4 h-4 text-primary" />
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Inundation Depth</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant" title="Modeled hydrological estimate">Inundation Depth (Modeled)</span>
                     </div>
-                    <span className="bg-error-container text-on-error-container px-2 py-0.5 rounded text-[10px] font-bold">Critical</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      env.waterLevelCm >= 40 ? 'bg-error-container text-on-error-container' : env.waterLevelCm >= 20 ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-primary-fixed/40 text-primary'
+                    }`}>
+                      {env.waterLevelCm >= 40 ? 'Critical' : env.waterLevelCm >= 20 ? 'Elevated' : 'Nominal'}
+                    </span>
                   </div>
                   <div className="my-2.5">
-                    <div className="font-headline text-2xl font-bold text-error">{env.waterLevelCm} cm</div>
-                    <div className="text-xs text-error mt-0.5 font-semibold">Rising (+4 cm / 15 min)</div>
+                    <div className={`font-headline text-2xl font-bold ${env.waterLevelCm >= 35 ? 'text-error' : 'text-on-surface'}`}>
+                      {hasEnv ? `${env.waterLevelCm} cm` : 'No live reading'}
+                    </div>
+                    <div className="text-xs text-on-surface-variant mt-0.5 font-medium">
+                      Modeled trend: {env.waterLevelTrend || 'STABLE'} {env.riseRate ? `(${env.riseRate})` : ''}
+                    </div>
                   </div>
                   <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
                     <div className="bg-error h-full rounded-full" style={{ width: `${Math.min(100, (env.waterLevelCm / 50) * 100)}%` }} />
@@ -289,11 +315,15 @@ export const RiskDetails: React.FC = () => {
                     </span>
                   </div>
                   <div className="my-2.5">
-                    <div className="font-headline text-2xl font-bold text-on-surface">{env.drainageFlowPct || 18}% Flow</div>
-                    <div className="text-xs text-tertiary mt-0.5 font-medium">Severe silting &amp; backflow</div>
+                    <div className="font-headline text-2xl font-bold text-on-surface">
+                      {env.drainageFlowPct !== undefined ? `${env.drainageFlowPct}% Flow` : location.drainageCondition}
+                    </div>
+                    <div className="text-xs text-on-surface-variant mt-0.5 font-medium">
+                      {location.drainageCondition} rating &bull; Modeled capacity
+                    </div>
                   </div>
                   <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-tertiary-container h-full rounded-full" style={{ width: `${env.drainageFlowPct || 18}%` }} />
+                    <div className="bg-tertiary-container h-full rounded-full" style={{ width: `${env.drainageFlowPct || 25}%` }} />
                   </div>
                 </div>
 
@@ -304,7 +334,7 @@ export const RiskDetails: React.FC = () => {
                       <History className="w-4 h-4 text-secondary" />
                       <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Historical Pattern</span>
                     </div>
-                    <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold">Chronic</span>
+                    <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold">Retrospective</span>
                   </div>
                   <div className="my-2.5">
                     <div className="font-headline text-2xl font-bold text-on-surface">{location.historicalIncidents} Events</div>
@@ -323,14 +353,14 @@ export const RiskDetails: React.FC = () => {
                 <h2 className="font-headline text-sm font-bold text-on-surface uppercase tracking-wider">
                   Hydrologic Factor Breakdown
                 </h2>
-                <span className="text-xs text-on-surface-variant font-medium">Engine Confidence: 94.2%</span>
+                <span className="text-xs text-on-surface-variant font-medium">Hydraulic Model: Synthesized</span>
               </div>
 
               <div className="flex flex-col gap-2.5">
                 {(location.factors && location.factors.length > 0 ? location.factors : [
-                  { title: `Heavy Rainfall (${env.rainfallMm}mm/h)`, description: 'Precipitation volume exceeds 10-year storm drain throughput design.', impact: 'HIGH' },
-                  { title: `Rising Water Level (${env.waterLevelCm}cm)`, description: 'Water depth approaching vehicle undercarriage stall limit (45cm).', impact: 'HIGH' },
-                  { title: 'Poor Drainage & Topographical Sump', description: 'Lowest elevation point in 2.4 sq km catchment with clogged secondary outflow gates.', impact: 'MEDIUM' },
+                  { title: `Rainfall Inflow (${env.rainfallMm}mm/h)`, description: 'Precipitation volume from Open-Meteo evaluated against storm drain capacity.', impact: env.rainfallMm >= 15 ? 'HIGH' : env.rainfallMm > 0 ? 'MEDIUM' : 'LOW' },
+                  { title: `Modeled Inundation Depth (${env.waterLevelCm}cm)`, description: 'Water level estimate derived from precipitation runoff and topographical basin contours.', impact: env.waterLevelCm >= 35 ? 'HIGH' : 'MEDIUM' },
+                  { title: 'Drainage Condition & Topography', description: `${location.drainageCondition} drainage rating in municipal catchment basin.`, impact: 'MEDIUM' },
                   { title: `Previous Flooding (${location.historicalIncidents} Events)`, description: 'Site has recurring chronic inundation history during convective storms.', impact: 'HIGH' }
                 ]).map((factor, idx) => (
                   <div 
@@ -362,7 +392,7 @@ export const RiskDetails: React.FC = () => {
             <div className="bg-surface-container-lowest p-space-md rounded-xl border border-[#e2e8df] shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-headline text-xs font-bold text-on-surface uppercase tracking-wider">Topographic Satellite Reference</span>
-                <span className="text-[11px] text-primary font-bold">Sensor Grid 4B-9</span>
+                <span className="text-[11px] text-primary font-bold">Catchment Basin Model</span>
               </div>
               <div className="w-full h-48 bg-slate-900 rounded-lg overflow-hidden relative border border-[#e2e8df]">
                 {/* Synthetic Topographic Satellite Imagery Canvas */}
@@ -380,7 +410,7 @@ export const RiskDetails: React.FC = () => {
                       HYDRAULIC BASIN ELEVATION PROFILE
                     </span>
                     <span className="font-headline text-lg font-bold text-white block">
-                      Railway Underpass Arterial Sub-Grade
+                      {location.name}
                     </span>
                     <span className="text-xs text-slate-300">
                       Elevation: -1.8m below regional datum &bull; Catchment: 2.4 km²
@@ -454,10 +484,10 @@ export const RiskDetails: React.FC = () => {
               {/* Checklist */}
               <div className="flex flex-col gap-2 mb-space-md">
                 {[
-                  { priority: 'Priority 1', title: 'Alert municipal response team & dispatch rapid pump unit', note: 'Unit 4-Delta notified via automated radio' },
-                  { priority: 'Priority 2', title: 'Inspect storm drain intake for debris obstruction', note: 'Clogged grate rate exceeding 65%' },
-                  { priority: 'Priority 3', title: 'Prepare mobile barrier deployment & auxiliary pumps', note: 'Standby at Maintenance Yard 2 (6 min ETA)' },
-                  { priority: 'Priority 4', title: 'Restrict vehicle access & reroute traffic at 45cm', note: 'Current water is 42cm. Pre-trigger variable signage' }
+                  { priority: 'Priority 1', title: 'Alert municipal response team & dispatch rapid pump unit', note: 'Unit 4-Delta notified via automated dispatch' },
+                  { priority: 'Priority 2', title: 'Inspect storm drain intake for debris obstruction', note: 'Clogged grate rate exceeding standard limit' },
+                  { priority: 'Priority 3', title: 'Prepare mobile barrier deployment & auxiliary pumps', note: 'Standby at Maintenance Yard 2' },
+                  { priority: 'Priority 4', title: 'Restrict vehicle access & reroute traffic at 45cm threshold', note: `Current water is ${env.waterLevelCm}cm. Pre-trigger variable signage.` }
                 ].map((step, idx) => (
                   <div
                     key={idx}
@@ -505,7 +535,7 @@ export const RiskDetails: React.FC = () => {
                 {/* Secondary CTA: Notify Field Response Team */}
                 <button
                   type="button"
-                  onClick={() => alert('Municipal Field Units in Zone 4B alerted via automated push relay.')}
+                  onClick={() => alert('Municipal Field Units in Zone 4B alerted via automated dispatch relay.')}
                   className="w-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface py-2 px-3 rounded-lg text-xs font-bold uppercase tracking-wide border border-[#e2e8df] transition-colors shadow-sm"
                 >
                   <span>Notify Field Response Team</span>
@@ -516,8 +546,8 @@ export const RiskDetails: React.FC = () => {
             {/* 3. Water Level Trajectory Sparkline Preview */}
             <div className="bg-surface-container-lowest p-space-md rounded-xl border border-[#e2e8df] shadow-sm">
               <div className="flex items-center justify-between pb-1 border-b border-[#e2e8df]">
-                <span className="text-xs font-bold uppercase text-on-surface">Water Level Trajectory</span>
-                <span className="text-xs font-bold text-error">+0.5cm / min velocity</span>
+                <span className="text-xs font-bold uppercase text-on-surface">Modeled Depth Trajectory</span>
+                <span className="text-xs font-bold text-tertiary">Trend: {env.waterLevelTrend || 'STABLE'}</span>
               </div>
               <div className="w-full h-16 pt-2">
                 <svg className="w-full h-full text-error" fill="none" preserveAspectRatio="none" viewBox="0 0 300 80">
@@ -527,9 +557,9 @@ export const RiskDetails: React.FC = () => {
                 </svg>
               </div>
               <div className="flex justify-between text-[10px] text-on-surface-variant pt-1">
-                <span>-60 min (12cm)</span>
-                <span>-30 min (22cm)</span>
-                <span>-10 min (39cm)</span>
+                <span>-60 min (Est.)</span>
+                <span>-30 min (Est.)</span>
+                <span>-10 min (Est.)</span>
                 <span className="text-error font-bold">Now ({env.waterLevelCm}cm)</span>
               </div>
             </div>

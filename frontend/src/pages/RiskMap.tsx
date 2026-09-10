@@ -23,6 +23,16 @@ export const RiskMap: React.FC = () => {
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [hazardDomain, setHazardDomain] = useState<string>('FLOODING');
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
+  const [currentTime, setCurrentTime] = useState(
+    () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' }) + ' UTC'
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' }) + ' UTC');
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -44,6 +54,10 @@ export const RiskMap: React.FC = () => {
     return loc.riskLevel === severityFilter;
   });
 
+  const avgRainfall = locations.length
+    ? (locations.reduce((acc, loc) => acc + (loc.environmental?.rainfallMm || 0), 0) / locations.length).toFixed(1)
+    : '0.0';
+
   return (
     <div className="flex flex-col w-full h-[calc(100vh-4rem)]">
       {/* 1. Top Context Header Bar */}
@@ -51,7 +65,7 @@ export const RiskMap: React.FC = () => {
         <div className="flex flex-col gap-0.5 max-w-2xl">
           <div className="flex items-center gap-2 text-primary text-[10px] uppercase font-bold tracking-wider">
             <Layers className="w-3.5 h-3.5" />
-            <span>Geospatial Risk Telemetry Engine</span>
+            <span>Geospatial Climate Risk Engine</span>
             <span className="text-outline">•</span>
             <span className="text-on-surface-variant font-medium">EPSG:3857 Hydro-Cadastral Proj</span>
           </div>
@@ -59,7 +73,7 @@ export const RiskMap: React.FC = () => {
             Climate Risk Map
           </h1>
           <p className="text-xs text-on-surface-variant line-clamp-1">
-            Monitor localized climate risk, environmental telemetry, and vulnerable municipal infrastructure across arterial storm basements.
+            Monitor localized climate risk, weather ingestion (Open-Meteo), and modeled inundation estimates across municipal infrastructure.
           </p>
         </div>
 
@@ -74,13 +88,13 @@ export const RiskMap: React.FC = () => {
             </div>
           </div>
 
-          {/* Live Sensor Feed */}
-          <div className="bg-surface-container-low rounded border border-[#e2e8df] px-3 py-1.5 flex items-center gap-2">
+          {/* Live Weather Feed (Open-Meteo) */}
+          <div className="bg-surface-container-low rounded border border-[#e2e8df] px-3 py-1.5 flex items-center gap-2" title="Weather data ingested via backend Open-Meteo integration">
             <div className="flex items-center gap-1.5 bg-primary-container/20 px-2 py-0.5 rounded text-primary">
               <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">LIVE SENSORS</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">LIVE WEATHER FEED</span>
             </div>
-            <span className="text-xs font-mono font-medium text-on-surface">14:32:08 UTC</span>
+            <span className="text-xs font-mono font-medium text-on-surface">{currentTime}</span>
           </div>
 
           {/* Toggle Filter Tray */}
@@ -223,25 +237,31 @@ export const RiskMap: React.FC = () => {
             {/* Metrics Row */}
             <div className="grid grid-cols-3 gap-1.5 my-2.5">
               <div className="bg-surface-container-low p-2 rounded border border-[#e2e8df] text-center">
-                <span className="text-[9px] text-outline uppercase font-bold block">Rainfall</span>
+                <span className="text-[9px] text-outline uppercase font-bold block" title="Source: Open-Meteo">Rainfall</span>
                 <span className="font-headline font-bold text-xs text-on-surface">
-                  {selectedLocation.environmental?.rainfallMm || 0} mm/h
+                  {selectedLocation.environmental?.rainfallMm ?? 0} mm/h
                 </span>
-                <span className="text-[9px] text-error font-bold block mt-0.5">Heavy</span>
+                <span className={`text-[9px] font-bold block mt-0.5 ${(selectedLocation.environmental?.rainfallMm || 0) >= 15 ? 'text-error' : (selectedLocation.environmental?.rainfallMm || 0) > 0 ? 'text-primary' : 'text-on-surface-variant'}`}>
+                  {(selectedLocation.environmental?.rainfallMm || 0) >= 15 ? 'Heavy' : (selectedLocation.environmental?.rainfallMm || 0) >= 2 ? 'Moderate' : (selectedLocation.environmental?.rainfallMm || 0) > 0 ? 'Light' : 'Clear'}
+                </span>
               </div>
               <div className="bg-surface-container-low p-2 rounded border border-[#e2e8df] text-center">
-                <span className="text-[9px] text-outline uppercase font-bold block">Water Depth</span>
-                <span className="font-headline font-bold text-xs text-error">
-                  {selectedLocation.environmental?.waterLevelCm || 0} cm
+                <span className="text-[9px] text-outline uppercase font-bold block" title="Modeled hydrological estimate">Modeled Depth</span>
+                <span className={`font-headline font-bold text-xs ${(selectedLocation.environmental?.waterLevelCm || 0) >= 35 ? 'text-error' : 'text-on-surface'}`}>
+                  {selectedLocation.environmental?.waterLevelCm ?? 0} cm
                 </span>
-                <span className="text-[9px] text-error font-medium block mt-0.5">+4cm/15m</span>
+                <span className="text-[9px] text-on-surface-variant font-medium block mt-0.5">
+                  {selectedLocation.environmental?.riseRate ? selectedLocation.environmental.riseRate : (selectedLocation.environmental?.waterLevelTrend || 'Stable')}
+                </span>
               </div>
               <div className="bg-surface-container-low p-2 rounded border border-[#e2e8df] text-center">
                 <span className="text-[9px] text-outline uppercase font-bold block">Drainage</span>
                 <span className="font-headline font-bold text-xs text-on-surface">
                   {selectedLocation.drainageCondition}
                 </span>
-                <span className="text-[9px] text-tertiary font-medium block mt-0.5">Choked 18%</span>
+                <span className="text-[9px] text-tertiary font-medium block mt-0.5">
+                  {selectedLocation.environmental?.drainageFlowPct !== undefined ? `${selectedLocation.environmental.drainageFlowPct}% capacity` : 'Modeled Sump'}
+                </span>
               </div>
             </div>
 
@@ -267,9 +287,9 @@ export const RiskMap: React.FC = () => {
           <div className="flex items-center justify-between bg-surface-container-low px-2.5 py-1.5 rounded border border-[#e2e8df]">
             <div className="flex items-center gap-1.5">
               <Umbrella className="w-4 h-4 text-primary" />
-              <span className="text-[11px] font-bold text-on-surface">Storm Cell Telemetry</span>
+              <span className="text-[11px] font-bold text-on-surface">Weather Feed (Open-Meteo)</span>
             </div>
-            <span className="text-[11px] text-primary font-bold">62.4mm avg</span>
+            <span className="text-[11px] text-primary font-bold">{avgRainfall} mm avg</span>
           </div>
 
           <div className="flex flex-col gap-1">

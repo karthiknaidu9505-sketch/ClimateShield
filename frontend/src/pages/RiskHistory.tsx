@@ -108,17 +108,21 @@ export const RiskHistory: React.FC = () => {
       {/* 1. Top Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
         <div className="flex flex-col gap-1 max-w-3xl">
-          <div className="flex items-center gap-2 text-primary text-[10px] uppercase font-bold tracking-wider">
+          <div className="flex items-center gap-2 text-primary text-[10px] uppercase font-bold tracking-wider flex-wrap">
             <History className="w-3.5 h-3.5" />
             <span>Civic Resilience Dossier</span>
             <span className="text-outline">•</span>
             <span className="text-on-surface-variant font-medium">Temporal Range: Nov 2023 – Oct 2024</span>
+            <span className="text-outline">•</span>
+            <span className="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+              Retrospective Archive &bull; Not Live Feed
+            </span>
           </div>
           <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
             Risk History &amp; Resilience Planning
           </h1>
           <p className="text-sm text-on-surface-variant leading-relaxed">
-            Understand recurring climate risks, evaluate historical flood trends, and prioritize municipal mitigation investments.
+            Understand recurring climate risks, evaluate historical flood records from municipal archives, and prioritize capital mitigation investments.
           </p>
         </div>
 

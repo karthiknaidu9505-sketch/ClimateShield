@@ -73,7 +73,7 @@ export const RiskMapView: React.FC<RiskMapViewProps> = ({
         <AlertOctagon className="w-12 h-12 text-tertiary mb-space-sm" />
         <h3 className="font-headline text-lg font-bold text-on-surface">Geospatial Basemap Fallback Active</h3>
         <p className="text-sm text-on-surface-variant max-w-md mt-1 mb-space-md">
-          External map cartographic tiles are currently operating in offline supervisory mode. Telemetry nodes remain active.
+          External map cartographic tiles are currently operating in offline supervisory mode. Location risk assessments remain active.
         </p>
         <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
           {locations.map((loc) => (
@@ -199,13 +199,13 @@ export const RiskMapView: React.FC<RiskMapViewProps> = ({
 
                 <div className="grid grid-cols-2 gap-1.5 bg-surface-container-low p-2 rounded mb-2 text-center text-xs">
                   <div>
-                    <span className="block text-[10px] uppercase text-on-surface-variant font-medium">Rainfall</span>
-                    <span className="font-bold text-on-surface">{loc.environmental?.rainfallMm || 0} mm/h</span>
+                    <span className="block text-[10px] uppercase text-on-surface-variant font-medium" title="Weather Source: Open-Meteo">Rain (Open-Meteo)</span>
+                    <span className="font-bold text-on-surface">{loc.environmental?.rainfallMm ?? 0} mm/h</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase text-on-surface-variant font-medium">Water Depth</span>
-                    <span className={`font-bold ${loc.environmental?.waterLevelCm >= 35 ? 'text-error' : 'text-on-surface'}`}>
-                      {loc.environmental?.waterLevelCm || 0} cm
+                    <span className="block text-[10px] uppercase text-on-surface-variant font-medium" title="Modeled hydrological estimate">Modeled Depth</span>
+                    <span className={`font-bold ${(loc.environmental?.waterLevelCm || 0) >= 35 ? 'text-error' : 'text-on-surface'}`}>
+                      {loc.environmental?.waterLevelCm ?? 0} cm
                     </span>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export const RiskMapView: React.FC<RiskMapViewProps> = ({
       {/* Floating Map Severity Scale Legend */}
       <div className="absolute bottom-3 left-3 z-[1000] bg-surface-container-lowest/95 backdrop-blur-md p-2.5 rounded-lg border border-[#e2e8df] shadow-md text-xs">
         <span className="text-[10px] uppercase font-bold text-on-surface-variant block mb-1.5">
-          Telemetry Severity Scale
+          Risk Assessment Severity Scale
         </span>
         <div className="flex items-center gap-2 text-[11px] font-semibold">
           <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-primary" /> Low</div>

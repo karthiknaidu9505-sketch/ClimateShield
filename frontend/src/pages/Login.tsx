@@ -67,12 +67,12 @@ export const Login: React.FC = () => {
                   </div>
                   <div className="flex flex-col">
                     <span className="font-headline text-xl font-bold tracking-tight text-white leading-tight">ClimateShield</span>
-                    <span className="text-[10px] tracking-widest uppercase text-primary-fixed-dim font-semibold">Operations Defense Grid</span>
+                    <span className="text-[10px] tracking-widest uppercase text-primary-fixed-dim font-semibold">Urban Climate Resilience</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 bg-primary-container/80 px-3 py-1 rounded-full text-white text-xs border border-white/10">
                   <span className="w-2 h-2 rounded-full bg-primary-fixed-dim animate-pulse" />
-                  <span className="font-semibold tracking-wider uppercase text-[10px]">DEFENSE LVL 1 • NOMINAL</span>
+                  <span className="font-semibold tracking-wider uppercase text-[10px]">MONITORING ACTIVE • NOMINAL</span>
                 </div>
               </div>
 
@@ -80,7 +80,7 @@ export const Login: React.FC = () => {
               <div className="mt-space-xl max-w-xl">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-primary-container/90 text-white text-xs font-semibold uppercase tracking-wider mb-space-sm border border-white/10">
                   <Waves className="w-3.5 h-3.5" />
-                  <span>Civilian Risk Telemetry</span>
+                  <span>Climate Risk Intelligence</span>
                 </div>
                 <h1 className="font-headline text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
                   Climate intelligence that drives action.
@@ -93,8 +93,8 @@ export const Login: React.FC = () => {
               {/* Tactical Gauge Strip */}
               <div className="mt-space-lg p-space-md rounded-lg bg-primary-container/50 backdrop-blur-sm flex items-center justify-between max-w-md border border-white/10">
                 <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-wider text-primary-fixed-dim font-bold">Telemetry Ingestion</span>
-                  <span className="font-headline font-bold text-lg text-white">148 Active Gauges</span>
+                  <span className="text-[10px] uppercase tracking-wider text-primary-fixed-dim font-bold">Weather Ingestion</span>
+                  <span className="font-headline font-bold text-lg text-white">Open-Meteo Synced</span>
                 </div>
                 <div className="w-28 h-6">
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 144 32">
@@ -103,8 +103,8 @@ export const Login: React.FC = () => {
                   </svg>
                 </div>
                 <div className="flex flex-col text-right">
-                  <span className="text-[10px] uppercase tracking-wider text-primary-fixed-dim font-bold">Runoff Model</span>
-                  <span className="text-xs font-bold text-primary-fixed">0.14s Delta</span>
+                  <span className="text-[10px] uppercase tracking-wider text-primary-fixed-dim font-bold">Hydrology Model</span>
+                  <span className="text-xs font-bold text-primary-fixed">Basin Runoff</span>
                 </div>
               </div>
 
@@ -242,7 +242,7 @@ export const Login: React.FC = () => {
             </div>
 
             <div className="mt-space-xl pt-space-md border-t border-[#e2e8df] text-center text-xs text-on-surface-variant">
-              ClimateShield Disaster Mitigation &bull; Live Telemetry v2.4
+              ClimateShield Disaster Mitigation &bull; Platform v2.4
             </div>
           </div>
 
