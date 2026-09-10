@@ -1,5 +1,6 @@
 // Base API client
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// Falls back to explicit backend URL so login works regardless of how the app is accessed
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 export async function apiRequest<T>(
   endpoint: string, 
