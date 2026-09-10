@@ -1,0 +1,149 @@
+// ClimateShield Prisma Database Schema
+// Supports both PostgreSQL (production) and SQLite (zero-config local dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  role           String        @default("OPERATOR") // OPERATOR, ADMIN, FIELD_OFFICER
+  password       String        @default("demo123")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  responseTeamId String?
+  responseTeam   ResponseTeam? @relation(fields: [responseTeamId], references: [id])
+}
+
+model ResponseTeam {
+  id          String     @id @default(cuid())
+  name        String     @unique // e.g. "Municipal Response Team A"
+  unitType    String     // e.g. "Rapid Hydro Unit"
+  leadName    String     // e.g. "Capt. Marcus Vance"
+  crewSize    Int        @default(4)
+  status      String     @default("STANDBY") // STANDBY, EN_ROUTE, ON_SITE, RESOLVED
+  eta         String     @default("6-8 minutes")
+  vehicleId   String     @default("#RH-04")
+  equipment   String     // JSON array string of equipment
+  radioChannel String    @default("Channel 4 Active (TANGO-4-HYDRO)")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  members     User[]
+  incidents   Incident[]
+}
+
+model Location {
+  id                  String                 @id @default(cuid())
+  name                String                 @unique // "Railway Underpass", "Market Road", etc.
+  sector              String                 // "Sector 7", "Sector 4B", etc.
+  district            String                 @default("Metro District North")
+  latitude            Float
+  longitude           Float
+  assetType           String                 // Road, Commercial, Campus, Residential
+  drainageCondition   String                 // Poor, Moderate, Good, Critical
+  historicalIncidents Int                    @default(0)
+  elevationMeters     Float                  @default(-1.8)
+  catchmentAreaKm2    Float                  @default(2.4)
+  description         String
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  assets              Asset[]
+  readings            EnvironmentalReading[]
+  riskAssessments     RiskAssessment[]
+  incidents           Incident[]
+}
+
+model Asset {
+  id           String   @id @default(cuid())
+  locationId   String
+  location     Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name         String   // "Primary Arterial Transit Route", "Emergency Response Route A"
+  type         String   // Transit, Hospital, School, Commercial, Utility
+  criticality  String   // Critical, High, Moderate
+  impactNotice String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model EnvironmentalReading {
+  id              String   @id @default(cuid())
+  locationId      String
+  location        Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  rainfallMm      Float    // e.g. 85.0
+  waterLevelCm    Float    // e.g. 42.0
+  drainageFlowPct Float    // e.g. 18.0 (throughput percentage)
+  waterLevelTrend String   @default("RISING") // RISING, STABLE, RECEDING
+  riseRate        String   @default("+4cm / 15min")
+  timestamp       DateTime @default(now())
+}
+
+model RiskAssessment {
+  id                  String   @id @default(cuid())
+  locationId          String
+  location            Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  riskScore           Int      // 0 - 100
+  riskLevel           String   // LOW, MEDIUM, HIGH, CRITICAL
+  rainfallScore       Float
+  waterLevelScore     Float
+  drainageScore       Float
+  historyScore        Float
+  contributingFactors String   // JSON string of factor breakdown
+  recommendedActions  String   // JSON string of recommended mitigation steps
+  evaluatedAt         DateTime @default(now())
+}
+
+model Incident {
+  id                  String           @id @default(cuid())
+  incidentNumber      String           @unique // "INC-2024-089"
+  locationId          String
+  location            Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  responseTeamId      String?
+  responseTeam        ResponseTeam?    @relation(fields: [responseTeamId], references: [id])
+  title               String           // "Railway Underpass Flooding"
+  severity            String           @default("CRITICAL") // CRITICAL, HIGH, MEDIUM, LOW
+  riskScore           Int              @default(87)
+  status              String           @default("RESPONSE_IN_PROGRESS") // RISK_DETECTED, ALERT_SENT, TEAM_ASSIGNED, RESPONSE_IN_PROGRESS, RESOLVED
+  waterLevelAtIncident Float           @default(42.0)
+  rainfallAtIncident   Float           @default(85.0)
+  summary             String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  resolvedAt          DateTime?
+
+  actions             ResponseAction[]
+  notes               IncidentNote[]
+}
+
+model ResponseAction {
+  id          String    @id @default(cuid())
+  incidentId  String
+  incident    Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  title       String    // "Inspect storm drain intake for debris obstruction"
+  description String
+  priority    String    // Urgent, High Priority, Continuous, Standard
+  order       Int       @default(1)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model IncidentNote {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  author     String   // "Field Unit 4 (Capt. M. Vance)", "Automated Surcharge Detector"
+  role       String   @default("OPERATIONS") // FIELD, AUTOMATED, OPERATIONS, SENSOR
+  message    String
+  createdAt  DateTime @default(now())
+}
