@@ -13,8 +13,10 @@ import {
   Calendar,
   Construction
 } from 'lucide-react';
-import { apiRequest } from '../services/api.js';
+import { apiRequest, isOfflineMode } from '../services/api.js';
+import { MOCK_HISTORY } from '../services/mockData.js';
 import { HistoryAnalytics } from '../types/index.js';
+
 
 export const RiskHistory: React.FC = () => {
   const navigate = useNavigate();
@@ -25,16 +27,22 @@ export const RiskHistory: React.FC = () => {
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await apiRequest<{ success: boolean; data: HistoryAnalytics }>('/history');
-        setHistoryData(res.data || (res as any));
+        if (await isOfflineMode()) {
+          setHistoryData(MOCK_HISTORY);
+        } else {
+          const res = await apiRequest<{ success: boolean; data: HistoryAnalytics }>('/history');
+          setHistoryData(res.data || (res as any));
+        }
       } catch (err) {
         console.error('Failed to load risk history analytics:', err);
+        setHistoryData(MOCK_HISTORY);
       } finally {
         setLoading(false);
       }
     }
     loadHistory();
   }, []);
+
 
   const summary = historyData?.summary || {
     totalIncidents: 25,

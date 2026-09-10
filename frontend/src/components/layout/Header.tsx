@@ -1,5 +1,6 @@
-import React from 'react';
-import { MapPin, AlertTriangle, Bell, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MapPin, AlertTriangle, Bell, ShieldAlert, WifiOff } from 'lucide-react';
+import { isOfflineMode } from '../../services/api.js';
 
 interface HeaderProps {
   districtName?: string;
@@ -14,8 +15,21 @@ export const Header: React.FC<HeaderProps> = ({
   alertText = 'Rainfall Alert: Level 3 Convective Inundation',
   notificationCount = 3
 }) => {
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    isOfflineMode().then(setOffline);
+  }, []);
+
   return (
-    <header className="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/95 backdrop-blur-xl z-40 border-b border-[#e2e8df] shadow-[0_1px_8px_rgba(0,0,0,0.02)]">
+    <header className="fixed top-0 left-72 right-0 bg-surface-container-lowest/95 backdrop-blur-xl z-40 border-b border-[#e2e8df] shadow-[0_1px_8px_rgba(0,0,0,0.02)]">
+      {/* Offline demo banner */}
+      {offline && (
+        <div className="w-full bg-amber-50 border-b border-amber-200 px-4 py-1 flex items-center justify-center gap-2 text-amber-800 text-[11px] font-semibold">
+          <WifiOff className="w-3 h-3 shrink-0" />
+          <span>Demo Mode — running offline with mock data. Start the backend (<code className="font-mono bg-amber-100 px-1 rounded">npm run dev --prefix backend</code>) for live data.</span>
+        </div>
+      )}
       <div className="h-16 w-full px-margin-desktop flex items-center justify-between">
         {/* Left Section: Monitored Jurisdiction Selector & Active Warning */}
         <div className="flex items-center gap-space-md">
@@ -68,3 +82,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
