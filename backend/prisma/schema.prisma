@@ -1,54 +1,118 @@
 // ClimateShield Prisma Database Schema
-// Supports both PostgreSQL (production) and SQLite (zero-config local dev)
+// Target: Supabase PostgreSQL with Connection Pooling
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
+
+// ─────────────────────────────────────────────────────────────
+// 1. Multi-Tenant Governance & Jurisdictional Hierarchy
+// ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id            String         @id @default(uuid())
+  name          String         // e.g. "Amalapuram Municipal Corporation"
+  code          String         @unique // e.g. "AMC-AP"
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  jurisdictions Jurisdiction[]
+  users         User[]
+}
+
+model Jurisdiction {
+  id                String               @id @default(uuid())
+  organizationId    String
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name              String               // e.g. "Amalapuram Region"
+  code              String               @unique // e.g. "AMALAPURAM-REGION"
+  centerLat         Float                @default(16.5787)
+  centerLng         Float                @default(82.0061)
+  boundaryGeoJson   Json?                // Optional GeoJSON polygon boundary
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  zones             Zone[]
+  locations         Location[]
+  responseTeams     ResponseTeam[]
+  incidents         Incident[]
+  historicalRisk    HistoricalRiskData[]
+  primaryUsers      User[]               @relation("PrimaryJurisdiction")
+  userJurisdictions UserJurisdiction[]
+}
+
+model Zone {
+  id             String       @id @default(uuid())
+  jurisdictionId String
+  jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  name           String       // e.g. "Sector 4B / Sector 7"
+  code           String       // e.g. "SEC-7"
+  drainageRating String       @default("MODERATE") // GOOD, MODERATE, POOR, CRITICAL
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  locations      Location[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2. Identity & Access Management (Linked to Supabase Auth)
+// ─────────────────────────────────────────────────────────────
 
 model User {
-  id             String        @id @default(cuid())
-  email          String        @unique
-  name           String
-  role           String        @default("OPERATOR") // OPERATOR, ADMIN, FIELD_OFFICER
-  password       String        @default("demo123")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                    String             @id // Corresponds directly to Supabase auth.users.id (UUID)
+  email                 String             @unique
+  name                  String
+  role                  String             @default("OPERATOR") // OPERATOR, ADMIN, DISPATCHER, FIELD_OFFICER
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  responseTeamId String?
-  responseTeam   ResponseTeam? @relation(fields: [responseTeamId], references: [id])
+  organizationId        String
+  organization          Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  primaryJurisdictionId String
+  primaryJurisdiction   Jurisdiction       @relation("PrimaryJurisdiction", fields: [primaryJurisdictionId], references: [id], onDelete: Cascade)
+
+  responseTeamId        String?
+  responseTeam          ResponseTeam?      @relation(fields: [responseTeamId], references: [id])
+
+  userJurisdictions     UserJurisdiction[]
+  declaredIncidents     Incident[]         @relation("DeclaredByUser")
+  notes                 IncidentNote[]
 }
 
-model ResponseTeam {
-  id          String     @id @default(cuid())
-  name        String     @unique // e.g. "Municipal Response Team A"
-  unitType    String     // e.g. "Rapid Hydro Unit"
-  leadName    String     // e.g. "Capt. Marcus Vance"
-  crewSize    Int        @default(4)
-  status      String     @default("STANDBY") // STANDBY, EN_ROUTE, ON_SITE, RESOLVED
-  eta         String     @default("6-8 minutes")
-  vehicleId   String     @default("#RH-04")
-  equipment   String     // JSON array string of equipment
-  radioChannel String    @default("Channel 4 Active (TANGO-4-HYDRO)")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+model UserJurisdiction {
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jurisdictionId String
+  jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
 
-  members     User[]
-  incidents   Incident[]
+  @@id([userId, jurisdictionId])
 }
+
+// ─────────────────────────────────────────────────────────────
+// 3. Physical Locations & Infrastructure Assets
+// ─────────────────────────────────────────────────────────────
 
 model Location {
-  id                  String                 @id @default(cuid())
-  name                String                 @unique // "Railway Underpass", "Market Road", etc.
-  sector              String                 // "Sector 7", "Sector 4B", etc.
-  district            String                 @default("Metro District North")
+  id                  String                 @id @default(uuid())
+  jurisdictionId      String
+  jurisdiction        Jurisdiction           @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  zoneId              String?
+  zone                Zone?                  @relation(fields: [zoneId], references: [id])
+  name                String                 // e.g. "Railway Underpass"
+  sector              String                 // e.g. "Sector 4B / Sector 7"
+  district            String                 @default("Amalapuram / Metro District North")
   latitude            Float
   longitude           Float
-  assetType           String                 // Road, Commercial, Campus, Residential
+  assetType           String                 // Road, Commercial, Campus, Residential, Underpass
   drainageCondition   String                 // Poor, Moderate, Good, Critical
   historicalIncidents Int                    @default(0)
   elevationMeters     Float                  @default(-1.8)
@@ -64,10 +128,10 @@ model Location {
 }
 
 model Asset {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid())
   locationId   String
   location     Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  name         String   // "Primary Arterial Transit Route", "Emergency Response Route A"
+  name         String   // e.g. "Primary Arterial Transit Route"
   type         String   // Transit, Hospital, School, Commercial, Utility
   criticality  String   // Critical, High, Moderate
   impactNotice String
@@ -75,20 +139,24 @@ model Asset {
   updatedAt    DateTime @updatedAt
 }
 
+// ─────────────────────────────────────────────────────────────
+// 4. Telemetry & Physical Risk Intelligence
+// ─────────────────────────────────────────────────────────────
+
 model EnvironmentalReading {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   locationId      String
   location        Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
   rainfallMm      Float    // e.g. 85.0
   waterLevelCm    Float    // e.g. 42.0
-  drainageFlowPct Float    // e.g. 18.0 (throughput percentage)
+  drainageFlowPct Float    // e.g. 18.0
   waterLevelTrend String   @default("RISING") // RISING, STABLE, RECEDING
   riseRate        String   @default("+4cm / 15min")
   timestamp       DateTime @default(now())
 }
 
 model RiskAssessment {
-  id                  String   @id @default(cuid())
+  id                  String   @id @default(uuid())
   locationId          String
   location            Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
   riskScore           Int      // 0 - 100
@@ -97,35 +165,65 @@ model RiskAssessment {
   waterLevelScore     Float
   drainageScore       Float
   historyScore        Float
-  contributingFactors String   // JSON string of factor breakdown
-  recommendedActions  String   // JSON string of recommended mitigation steps
+  contributingFactors Json     // JSONB array of factor breakdown items
+  recommendedActions  Json     // JSONB array of recommended mitigation actions
+  aiExplanation       String?  // Operational narrative synthesized by AI
+  aiTacticalAdvice    String?  // Tactical response guidance generated by AI
   evaluatedAt         DateTime @default(now())
 }
 
-model Incident {
-  id                  String           @id @default(cuid())
-  incidentNumber      String           @unique // "INC-2024-089"
-  locationId          String
-  location            Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  responseTeamId      String?
-  responseTeam        ResponseTeam?    @relation(fields: [responseTeamId], references: [id])
-  title               String           // "Railway Underpass Flooding"
-  severity            String           @default("CRITICAL") // CRITICAL, HIGH, MEDIUM, LOW
-  riskScore           Int              @default(87)
-  status              String           @default("RESPONSE_IN_PROGRESS") // RISK_DETECTED, ALERT_SENT, TEAM_ASSIGNED, RESPONSE_IN_PROGRESS, RESOLVED
-  waterLevelAtIncident Float           @default(42.0)
-  rainfallAtIncident   Float           @default(85.0)
-  summary             String
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  resolvedAt          DateTime?
+// ─────────────────────────────────────────────────────────────
+// 5. Emergency Incident Response & Field Dispatch
+// ─────────────────────────────────────────────────────────────
 
-  actions             ResponseAction[]
-  notes               IncidentNote[]
+model ResponseTeam {
+  id             String       @id @default(uuid())
+  jurisdictionId String
+  jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  name           String       // e.g. "Municipal Response Team A"
+  unitType       String       // e.g. "Rapid Hydro Unit"
+  leadName       String       // e.g. "Capt. Marcus Vance"
+  crewSize       Int          @default(4)
+  status         String       @default("STANDBY") // STANDBY, EN_ROUTE, ON_SITE, RESOLVED
+  eta            String       @default("6-8 minutes")
+  vehicleId      String       @default("#RH-04")
+  equipment      Json         // JSONB array of equipment items
+  radioChannel   String       @default("Channel 4 Active (TANGO-4-HYDRO)")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  members        User[]
+  incidents      Incident[]
+}
+
+model Incident {
+  id                   String           @id @default(uuid())
+  incidentNumber       String           @unique // "INC-2024-089"
+  jurisdictionId       String
+  jurisdiction         Jurisdiction     @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  locationId           String
+  location             Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  responseTeamId       String?
+  responseTeam         ResponseTeam?    @relation(fields: [responseTeamId], references: [id])
+  declaredById         String?
+  declaredBy           User?            @relation("DeclaredByUser", fields: [declaredById], references: [id])
+  title                String           // "Railway Underpass Flooding"
+  severity             String           @default("CRITICAL") // CRITICAL, HIGH, MEDIUM, LOW
+  riskScore            Int              @default(87)
+  status               String           @default("RESPONSE_IN_PROGRESS") // RISK_DETECTED, ALERT_SENT, TEAM_ASSIGNED, RESPONSE_IN_PROGRESS, RESOLVED
+  waterLevelAtIncident Float            @default(42.0)
+  rainfallAtIncident   Float            @default(85.0)
+  summary              String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  resolvedAt           DateTime?
+
+  actions              ResponseAction[]
+  notes                IncidentNote[]
 }
 
 model ResponseAction {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   incidentId  String
   incident    Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   title       String    // "Inspect storm drain intake for debris obstruction"
@@ -139,11 +237,30 @@ model ResponseAction {
 }
 
 model IncidentNote {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   incidentId String
   incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  author     String   // "Field Unit 4 (Capt. M. Vance)", "Automated Surcharge Detector"
+  authorId   String?
+  authorUser User?    @relation(fields: [authorId], references: [id])
+  author     String   // "Field Unit 4 (Capt. M. Vance)"
   role       String   @default("OPERATIONS") // FIELD, AUTOMATED, OPERATIONS, SENSOR
   message    String
   createdAt  DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. Historical Risk Intelligence & Resilience Directives
+// ─────────────────────────────────────────────────────────────
+
+model HistoricalRiskData {
+  id                String       @id @default(uuid())
+  jurisdictionId    String
+  jurisdiction      Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  year              Int          @default(2024)
+  monthlyTrends     Json         // 12-month array of monthly trends
+  recurringHotspots Json         // Array of hotspot items
+  capitalDirective  Json         // Capital project directive object
+  summaryMetrics    Json         // Summary metrics object
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 }

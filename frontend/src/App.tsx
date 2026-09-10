@@ -7,6 +7,7 @@ import { RiskMap } from './pages/RiskMap.js';
 import { RiskDetails } from './pages/RiskDetails.js';
 import { IncidentResponse } from './pages/IncidentResponse.js';
 import { RiskHistory } from './pages/RiskHistory.js';
+import { AuthProvider } from './context/AuthContext.js';
 
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -20,29 +21,31 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public Login Route */}
-        <Route path="/login" element={<Login />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public Login Route */}
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected Application Routes wrapped in AppLayout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/risk-map" element={<RiskMap />} />
-          <Route path="/risk/:locationId" element={<RiskDetails />} />
-          <Route path="/incidents/:incidentId" element={<IncidentResponse />} />
-          <Route path="/risk-history" element={<RiskHistory />} />
-        </Route>
+          {/* Protected Application Routes wrapped in AppLayout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/risk-map" element={<RiskMap />} />
+            <Route path="/risk/:locationId" element={<RiskDetails />} />
+            <Route path="/incidents/:incidentId" element={<IncidentResponse />} />
+            <Route path="/risk-history" element={<RiskHistory />} />
+          </Route>
 
-        {/* Catch-all fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+          {/* Catch-all fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

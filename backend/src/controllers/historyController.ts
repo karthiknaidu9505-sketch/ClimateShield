@@ -1,15 +1,31 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/db.js';
 
-export const getRiskHistory = async (_req: Request, res: Response) => {
+export const getRiskHistory = async (req: Request, res: Response) => {
   try {
-    const locations = await prisma.location.findMany({
-      include: {
-        incidents: true
-      }
-    });
+    const jurisdictionId = (req.query.jurisdictionId as string) || 'jur-amalapuram-region';
 
-    // 12-Month Historical Monthly Distribution matching Stitch data
+    // Try finding database record for jurisdiction
+    try {
+      const historicalRecord = await prisma.historicalRiskData.findFirst({
+        where: { jurisdictionId },
+        orderBy: { year: 'desc' }
+      });
+
+      if (historicalRecord) {
+        return res.json({
+          success: true,
+          summary: historicalRecord.summaryMetrics,
+          capitalDirective: historicalRecord.capitalDirective,
+          monthlyTrends: historicalRecord.monthlyTrends,
+          recurringHotspots: historicalRecord.recurringHotspots
+        });
+      }
+    } catch (dbErr) {
+      console.warn('Could not query HistoricalRiskData table, using standard history dataset:', dbErr);
+    }
+
+    // Standard 12-Month Historical Monthly Distribution matching Stitch data
     const monthlyTrends = [
       { month: 'Nov', incidents: 1, isPeak: false, rainfallMm: 45 },
       { month: 'Dec', incidents: 0, isPeak: false, rainfallMm: 12 },
@@ -25,7 +41,6 @@ export const getRiskHistory = async (_req: Request, res: Response) => {
       { month: 'Oct', incidents: 2, isPeak: false, rainfallMm: 55 }
     ];
 
-    // Recurring Hotspots matching Stitch visual
     const recurringHotspots = [
       {
         id: 'loc-railway-underpass',

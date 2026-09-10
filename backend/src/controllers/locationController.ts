@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import { LocationService } from '../services/locations/locationService.js';
 
-export const getLocations = async (_req: Request, res: Response) => {
+export const getLocations = async (req: Request, res: Response) => {
   try {
-    const locations = await LocationService.getAllLocations();
+    const jurisdictionId = req.query.jurisdictionId as string | undefined;
+    const locations = await LocationService.getAllLocations(jurisdictionId);
     return res.json({ success: true, count: locations.length, data: locations });
   } catch (error: any) {
     console.error('Error getting locations:', error);

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { login } from '../controllers/authController.js';
+import { getJurisdictions } from '../controllers/jurisdictionController.js';
 import { getLocations, getLocationById } from '../controllers/locationController.js';
 import { getRiskByLocationId, calculateCustomRisk } from '../controllers/riskController.js';
+import { syncWeather, getLatestWeather } from '../controllers/weatherController.js';
 import { 
   getIncidents, 
   getIncidentById, 
@@ -13,35 +15,48 @@ import {
 } from '../controllers/incidentController.js';
 import { getTeams } from '../controllers/teamController.js';
 import { getRiskHistory } from '../controllers/historyController.js';
+import { optionalAuth } from '../middlewares/authMiddleware.js';
 
 const router = Router();
+
+// Apply optional authentication context to all API routes
+router.use(optionalAuth as any);
 
 // Authentication
 router.post('/auth/login', login);
 
-// Locations
+// Weather Ingestion & Synchronization (Phase 2)
+router.get('/weather/sync', syncWeather);
+router.post('/weather/sync', syncWeather);
+router.get('/weather/latest/:locationId', getLatestWeather);
+
+// Jurisdictions & Regional Multi-Tenancy
+router.get('/jurisdictions', getJurisdictions);
+
+// Locations & Vulnerable Sites
 router.get('/locations', getLocations);
 router.get('/locations/:id', getLocationById);
 
-// Risk Engine
+// Risk Engine & Analytics
 router.get('/risk/:locationId', getRiskByLocationId);
 router.post('/risk/calculate', calculateCustomRisk);
 
-// Incidents
+// Emergency Incidents
 router.get('/incidents', getIncidents);
 router.get('/incidents/:id', getIncidentById);
 router.post('/incidents', createIncident);
 router.patch('/incidents/:id', updateIncident);
 
-// Response Actions
+// Response Checklist Actions & Dispatch Radio Log
 router.get('/incidents/:id/actions', getIncidentActions);
+router.patch('/incidents/any/actions/:actionId', updateIncidentAction);
 router.patch('/incidents/:id/actions/:actionId', updateIncidentAction);
 router.post('/incidents/:id/notes', addIncidentNote);
 
-// Teams
+// Response Units & Telemetry
 router.get('/teams', getTeams);
 
-// Risk History & Analytics
+// Long-Term Risk History & Resilience Intelligence
 router.get('/history', getRiskHistory);
 
 export default router;

@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { IncidentService } from '../services/incidents/incidentService.js';
-import { prisma } from '../config/db.js';
 
-export const getIncidents = async (_req: Request, res: Response) => {
+export const getIncidents = async (req: Request, res: Response) => {
   try {
-    const incidents = await IncidentService.getAllIncidents();
+    const jurisdictionId = req.query.jurisdictionId as string | undefined;
+    const incidents = await IncidentService.getAllIncidents(jurisdictionId);
     return res.json({ success: true, count: incidents.length, data: incidents });
   } catch (error: any) {
     console.error('Error fetching incidents:', error);
@@ -30,7 +30,7 @@ export const getIncidentById = async (req: Request, res: Response) => {
 
 export const createIncident = async (req: Request, res: Response) => {
   try {
-    const { locationId, title, severity, riskScore, responseTeamId, summary } = req.body;
+    const { locationId, jurisdictionId, title, severity, riskScore, responseTeamId, summary } = req.body;
 
     if (!locationId) {
       return res.status(400).json({ error: 'locationId is required to declare an incident.' });
@@ -38,6 +38,7 @@ export const createIncident = async (req: Request, res: Response) => {
 
     const newIncident = await IncidentService.createIncident({
       locationId,
+      jurisdictionId,
       title,
       severity,
       riskScore: riskScore ? Number(riskScore) : undefined,

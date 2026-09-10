@@ -1,26 +1,17 @@
 import { Request, Response } from 'express';
-import { prisma } from '../config/db.js';
+import { LocationService } from '../services/locations/locationService.js';
 import { RiskEngine } from '../services/risk/riskEngine.js';
 
 export const getRiskByLocationId = async (req: Request, res: Response) => {
   try {
     const { locationId } = req.params;
-
-    const location = await prisma.location.findUnique({
-      where: { id: locationId },
-      include: {
-        readings: {
-          orderBy: { timestamp: 'desc' },
-          take: 1
-        }
-      }
-    });
+    const location = await LocationService.getLocationById(locationId);
 
     if (!location) {
       return res.status(404).json({ error: `Location '${locationId}' not found.` });
     }
 
-    const latest = location.readings[0] || {
+    const latest = location.latestReading || (location as any).environmental || {
       rainfallMm: 85,
       waterLevelCm: 42
     };

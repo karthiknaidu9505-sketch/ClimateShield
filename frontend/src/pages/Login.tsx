@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, ShieldAlert, Waves, Grid, Radio, Lock, ArrowRight, CheckCircle2, WifiOff } from 'lucide-react';
-import { apiRequest, isOfflineMode } from '../services/api.js';
-import { MOCK_USER, MOCK_TOKEN, checkDemoCredentials } from '../services/mockData.js';
-
+import { useAuth } from '../context/AuthContext.js';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('admin@climateshield.demo');
   const [password, setPassword] = useState('demo123');
   const [loading, setLoading] = useState(false);
@@ -17,38 +16,12 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
 
-    const saveSession = (token: string, user: any) => {
-      localStorage.setItem('climateshield_token', token);
-      localStorage.setItem('climateshield_user', JSON.stringify(user));
-      navigate('/dashboard');
-    };
-
     try {
-      // If backend is unreachable, use local credential check immediately
-      const offline = await isOfflineMode();
-      if (offline) {
-        if (checkDemoCredentials(email, password)) {
-          saveSession(MOCK_TOKEN, MOCK_USER);
-        } else {
-          setError('Invalid credentials. Use admin@climateshield.demo / demo123');
-        }
-        return;
-      }
-
-      // Online: try backend
-      try {
-        const res = await apiRequest<{ success: boolean; token: string; user: any }>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        });
-        if (res.token) saveSession(res.token, res.user);
-      } catch {
-        // Backend rejected → try local demo credentials as last resort
-        if (checkDemoCredentials(email, password)) {
-          saveSession(MOCK_TOKEN, MOCK_USER);
-        } else {
-          setError('Invalid credentials. Use admin@climateshield.demo / demo123');
-        }
+      const res = await signIn(email, password);
+      if (res.success) {
+        navigate('/dashboard');
+      } else {
+        setError(res.error || 'Authentication failed. Please verify credentials.');
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please verify credentials.');
