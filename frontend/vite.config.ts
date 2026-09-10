@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // SPA mode: serve index.html for all routes so refresh works on /dashboard, /risk-map etc.
+  appType: 'spa',
   server: {
     port: 5173,
     host: true,
