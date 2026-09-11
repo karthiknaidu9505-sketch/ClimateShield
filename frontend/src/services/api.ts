@@ -69,7 +69,12 @@ export async function apiRequest<T>(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (netErr: any) {
+    throw new Error(`Unable to reach backend server (${BASE_URL}). Please verify that the ClimateShield backend service is running.`);
+  }
 
   if (!response.ok) {
     let errorMessage = `HTTP error ${response.status}`;
