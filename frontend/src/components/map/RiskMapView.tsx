@@ -37,6 +37,24 @@ const createCustomIcon = (riskLevel: string, score: number) => {
   });
 };
 
+// Recenter/fit map whenever locations update
+function MapRecenter({ center, locations }: { center: [number, number]; locations: LocationItem[] }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (locations && locations.length > 0) {
+      if (locations.length === 1) {
+        map.setView([locations[0].latitude, locations[0].longitude], 14);
+      } else {
+        const bounds = L.latLngBounds(locations.map(l => [l.latitude, l.longitude]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
+    } else {
+      map.setView(center, 13);
+    }
+  }, [locations, center, map]);
+  return null;
+}
+
 interface RiskMapViewProps {
   locations: LocationItem[];
   height?: string;
@@ -60,9 +78,13 @@ export const RiskMapView: React.FC<RiskMapViewProps> = ({
     routes: true
   });
 
-  // Center coordinate around Amalapuram (Railway Underpass: 16.58, 82.00)
-  const centerLat = 16.58;
-  const centerLng = 82.005;
+  // Dynamically calculate center coordinate from authorized locations (fallback: 16.58, 82.005)
+  const centerLat = locations.length > 0
+    ? locations.reduce((sum, l) => sum + l.latitude, 0) / locations.length
+    : 16.58;
+  const centerLng = locations.length > 0
+    ? locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length
+    : 82.005;
 
   if (mapError) {
     return (
@@ -138,6 +160,7 @@ export const RiskMapView: React.FC<RiskMapViewProps> = ({
         scrollWheelZoom={true}
         className="w-full h-full"
       >
+        <MapRecenter center={[centerLat, centerLng]} locations={locations} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

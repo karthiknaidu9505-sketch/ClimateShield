@@ -20,6 +20,10 @@ export interface LocationRiskResponse {
 
 export const riskService = {
   async getRiskForLocation(locationId: string): Promise<LocationRiskResponse> {
+    const token = localStorage.getItem('climateshield_token');
+    if (token) {
+      return apiRequest<LocationRiskResponse>(`/risk/${locationId}`);
+    }
     if (await isOfflineMode()) {
       const loc = MOCK_LOCATIONS.find((l) => l.id === locationId);
       if (!loc) throw new Error(`No mock data for location ${locationId}`);

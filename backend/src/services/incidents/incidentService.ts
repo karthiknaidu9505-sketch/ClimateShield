@@ -1,10 +1,12 @@
 import { prisma } from '../../config/db.js';
 
 export class IncidentService {
-  public static async getAllIncidents(jurisdictionId?: string) {
+  public static async getAllIncidents(jurisdictionId?: string, allowedJurisdictionIds?: string[]) {
     const where: any = {};
     if (jurisdictionId) {
       where.jurisdictionId = jurisdictionId;
+    } else if (allowedJurisdictionIds && allowedJurisdictionIds.length > 0) {
+      where.jurisdictionId = { in: allowedJurisdictionIds };
     }
 
     try {
@@ -18,7 +20,7 @@ export class IncidentService {
           },
           notes: {
             orderBy: { createdAt: 'desc' },
-            take: 5
+            take: 10
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -28,11 +30,11 @@ export class IncidentService {
         return incidents;
       }
     } catch (err) {
-      console.warn('Database query failed in getAllIncidents, returning nominal incident:', err);
+      console.warn('Database query failed in getAllIncidents:', err);
     }
 
-    // Default nominal fallback incident
-    return [
+    // Nominal fallback dataset if database is offline or unseeded
+    const fallback = [
       {
         id: 'inc-railway-001',
         incidentNumber: 'INC-2024-089',
@@ -58,6 +60,14 @@ export class IncidentService {
         ]
       }
     ];
+
+    if (jurisdictionId) {
+      return fallback.filter(i => i.jurisdictionId === jurisdictionId);
+    }
+    if (allowedJurisdictionIds && allowedJurisdictionIds.length > 0) {
+      return fallback.filter(i => allowedJurisdictionIds.includes(i.jurisdictionId));
+    }
+    return fallback;
   }
 
   public static async getIncidentById(id: string) {
@@ -94,13 +104,12 @@ export class IncidentService {
       console.warn(`Database query failed in getIncidentById for ${id}:`, err);
     }
 
-    const all = await this.getAllIncidents();
-    return all.find(i => i.id === id || i.incidentNumber === id) || all[0];
+    return null;
   }
 
   public static async createIncident(data: {
     locationId: string;
-    jurisdictionId?: string;
+    jurisdictionId: string;
     title?: string;
     severity?: string;
     riskScore?: number;
@@ -120,7 +129,6 @@ export class IncidentService {
       console.warn('Could not find location in DB during createIncident:', e);
     }
 
-    const targetJurisdictionId = data.jurisdictionId || location?.jurisdictionId || 'jur-amalapuram-region';
     const latestReading = location?.readings?.[0] || {
       rainfallMm: 85,
       waterLevelCm: 42
@@ -137,17 +145,17 @@ export class IncidentService {
       const incident = await prisma.incident.create({
         data: {
           incidentNumber,
-          jurisdictionId: targetJurisdictionId,
+          jurisdictionId: data.jurisdictionId,
           locationId: data.locationId,
           responseTeamId: data.responseTeamId,
           declaredById: data.declaredById,
-          title: data.title || `${location?.name || 'Critical Zone'} Flooding`,
+          title: data.title || `${location?.name || 'Critical Zone'} Inundation`,
           severity: data.severity || 'CRITICAL',
           riskScore: data.riskScore || 87,
           status: 'TEAM_ASSIGNED',
           waterLevelAtIncident: latestReading.waterLevelCm,
           rainfallAtIncident: latestReading.rainfallMm,
-          summary: data.summary || `Automated operational dispatch initiated. Depth at ${latestReading.waterLevelCm}cm.`
+          summary: data.summary || `Operational dispatch initiated. Depth at ${latestReading.waterLevelCm}cm.`
         }
       });
 
@@ -165,33 +173,17 @@ export class IncidentService {
       await prisma.incidentNote.create({
         data: {
           incidentId: incident.id,
+          authorId: data.declaredById,
           author: 'District Operations Command',
           role: 'OPERATIONS',
-          message: `Incident declared for location. Response team assigned.`
+          message: `Incident declared for location. Emergency response unit assigned.`
         }
       });
 
       return this.getIncidentById(incident.id);
     } catch (createErr) {
-      console.warn('Prisma create failed in createIncident, returning generated object:', createErr);
-      return {
-        id: `inc-${Date.now()}`,
-        incidentNumber,
-        jurisdictionId: targetJurisdictionId,
-        locationId: data.locationId,
-        responseTeamId: data.responseTeamId || null,
-        title: data.title || 'Operational Flood Alert',
-        severity: data.severity || 'CRITICAL',
-        riskScore: data.riskScore || 87,
-        status: 'TEAM_ASSIGNED',
-        waterLevelAtIncident: latestReading.waterLevelCm,
-        rainfallAtIncident: latestReading.rainfallMm,
-        summary: data.summary || 'Operational dispatch initiated.',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        actions: [],
-        notes: []
-      };
+      console.warn('Prisma create failed in createIncident:', createErr);
+      throw createErr;
     }
   }
 
@@ -219,49 +211,29 @@ export class IncidentService {
       return this.getIncidentById(updated.id);
     } catch (err) {
       console.warn(`Prisma update failed in updateIncident for ${id}:`, err);
-      return this.getIncidentById(id);
+      throw err;
     }
   }
 
   public static async toggleAction(actionId: string, isCompleted: boolean) {
-    try {
-      return await prisma.responseAction.update({
-        where: { id: actionId },
-        data: {
-          isCompleted,
-          completedAt: isCompleted ? new Date() : null
-        }
-      });
-    } catch (err) {
-      console.warn(`Prisma toggle failed for action ${actionId}:`, err);
-      return {
-        id: actionId,
+    return await prisma.responseAction.update({
+      where: { id: actionId },
+      data: {
         isCompleted,
-        completedAt: isCompleted ? new Date().toISOString() : null
-      };
-    }
+        completedAt: isCompleted ? new Date() : null
+      }
+    });
   }
 
-  public static async addNote(incidentId: string, author: string, message: string, role = 'OPERATIONS') {
-    try {
-      return await prisma.incidentNote.create({
-        data: {
-          incidentId,
-          author,
-          message,
-          role
-        }
-      });
-    } catch (err) {
-      console.warn(`Prisma addNote failed for incident ${incidentId}:`, err);
-      return {
-        id: `note-${Date.now()}`,
+  public static async addNote(incidentId: string, author: string, message: string, role = 'OPERATIONS', authorId?: string) {
+    return await prisma.incidentNote.create({
+      data: {
         incidentId,
+        authorId,
         author,
         message,
-        role,
-        createdAt: new Date().toISOString()
-      };
-    }
+        role
+      }
+    });
   }
 }

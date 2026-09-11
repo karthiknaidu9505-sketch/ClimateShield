@@ -20,9 +20,11 @@ import { RiskMapView } from '../components/map/RiskMapView.js';
 import { locationService } from '../services/locationService.js';
 import { incidentService } from '../services/incidentService.js';
 import { LocationItem, Incident, ResponseTeam } from '../types/index.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { user, primaryJurisdiction } = useAuth();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [teams, setTeams] = useState<ResponseTeam[]>([]);
@@ -52,7 +54,7 @@ export const Dashboard: React.FC = () => {
       }
     }
     loadData();
-  }, []);
+  }, [user?.id, primaryJurisdiction]);
 
   const handleExecuteActions = () => {
     setExecuteStatus('executing');
@@ -130,13 +132,13 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 text-secondary">
             <span className="text-[11px] uppercase tracking-widest text-primary font-bold">
-              Amalapuram Region Operations Command
+              {primaryJurisdiction || 'Operations Command'}
             </span>
             <span className="text-outline-variant">•</span>
             <span className="text-[11px] text-on-surface-variant font-medium">Hydrology Basin Ingestion Grid</span>
           </div>
           <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-            Good morning, Operations Team
+            Good morning, {user?.name || 'Operations Team'}
           </h1>
           <p className="text-sm text-on-surface-variant max-w-2xl">
             Here is the current climate-risk situation across your monitored area. Environmental telemetry ingested from Open-Meteo and normalized via hydraulic basin model.
@@ -150,7 +152,7 @@ export const Dashboard: React.FC = () => {
             <MapPin className="w-4 h-4 text-primary" />
             <div className="flex flex-col">
               <span className="text-[9px] text-on-surface-variant uppercase font-bold leading-none">Target Region</span>
-              <span className="text-xs font-bold leading-tight">Amalapuram &amp; North Sector</span>
+              <span className="text-xs font-bold leading-tight">{primaryJurisdiction || 'Assigned District'}</span>
             </div>
           </div>
 
@@ -302,7 +304,9 @@ export const Dashboard: React.FC = () => {
               <Layers className="w-4 h-4 text-primary" />
               <div>
                 <h2 className="font-headline text-sm font-bold text-on-surface">Live Climate Risk Map</h2>
-                <span className="text-[10px] text-on-surface-variant">Amalapuram Basin Topology &bull; Hydraulic Gauges</span>
+                <span className="text-[10px] text-on-surface-variant">
+                  {primaryJurisdiction ? `${primaryJurisdiction.replace(' Operations Command', '')} Basin Topology` : 'Regional Basin Topology'} &bull; Hydraulic Gauges
+                </span>
               </div>
             </div>
             <button

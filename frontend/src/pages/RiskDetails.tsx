@@ -21,10 +21,12 @@ import {
 import { locationService } from '../services/locationService.js';
 import { incidentService } from '../services/incidentService.js';
 import { LocationItem } from '../types/index.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const RiskDetails: React.FC = () => {
   const { locationId } = useParams<{ locationId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [location, setLocation] = useState<LocationItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,8 +42,11 @@ export const RiskDetails: React.FC = () => {
     async function loadLocation() {
       try {
         setLoading(true);
-        // Default to Railway Underpass if none provided
-        const targetId = locationId || 'loc-railway-underpass';
+        let targetId = locationId;
+        if (!targetId) {
+          const locs = await locationService.getLocations();
+          targetId = locs[0]?.id || (user?.primaryJurisdictionId?.includes('tuni') ? 'loc-tuni-junction' : 'loc-railway-underpass');
+        }
         const data = await locationService.getLocationById(targetId);
         setLocation(data);
       } catch (err: any) {
@@ -52,7 +57,7 @@ export const RiskDetails: React.FC = () => {
       }
     }
     loadLocation();
-  }, [locationId]);
+  }, [locationId, user?.id]);
 
   const handleCreateIncident = async () => {
     if (!location) return;

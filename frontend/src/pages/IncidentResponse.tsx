@@ -21,10 +21,12 @@ import {
 } from 'lucide-react';
 import { incidentService } from '../services/incidentService.js';
 import { Incident, ResponseTeam, IncidentStatus } from '../types/index.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const IncidentResponse: React.FC = () => {
   const { incidentId } = useParams<{ incidentId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [incident, setIncident] = useState<Incident | null>(null);
   const [teams, setTeams] = useState<ResponseTeam[]>([]);
@@ -34,8 +36,9 @@ export const IncidentResponse: React.FC = () => {
   const [isResolving, setIsResolving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
-  // Default fallback ID if route has no parameter
-  const targetId = incidentId && incidentId !== ':incidentId' ? incidentId : 'inc-railway-001';
+  // Default fallback ID according to user's authorized district
+  const fallbackId = user?.primaryJurisdictionId?.includes('tuni') ? 'inc-tuni-001' : 'inc-railway-001';
+  const targetId = incidentId && incidentId !== ':incidentId' ? incidentId : fallbackId;
 
   const loadData = async () => {
     try {

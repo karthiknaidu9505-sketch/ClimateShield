@@ -1,21 +1,31 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { WeatherHydrologyService } from '../services/weather/weatherHydrologyService.js';
 import { OpenMeteoClient } from '../services/weather/openMeteoClient.js';
 import { LocationService } from '../services/locations/locationService.js';
+import { AuthenticatedRequest, isAuthorizedForJurisdiction } from '../middlewares/authMiddleware.js';
 
 /**
  * Handles weather data synchronization:
  * GET or POST /api/weather/sync
- *
- * Query / Body parameters:
- *  - locationId (optional): syncs a specific location only
- *  - simulateRainfall (optional): numeric override for operational stress testing
  */
-export const syncWeather = async (req: Request, res: Response) => {
+export const syncWeather = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const locationId = (req.query.locationId as string) || req.body?.locationId;
     const simulateParam = req.query.simulateRainfall || req.body?.simulateRainfall;
     const simulatedRainfall = simulateParam !== undefined ? Number(simulateParam) : undefined;
+
+    if (locationId) {
+      const location = await LocationService.getLocationById(locationId);
+      if (!location) {
+        return res.status(404).json({ success: false, error: `Location '${locationId}' not found.` });
+      }
+      if (!isAuthorizedForJurisdiction(req, location.jurisdictionId)) {
+        return res.status(403).json({
+          success: false,
+          error: `Forbidden: You are not authorized to trigger weather sync for location '${locationId}' in another district.`
+        });
+      }
+    }
 
     const report = await WeatherHydrologyService.syncAllLocations({
       locationId,
@@ -37,13 +47,20 @@ export const syncWeather = async (req: Request, res: Response) => {
  * Retrieves the latest live weather observation directly from Open-Meteo for a given location:
  * GET /api/weather/latest/:locationId
  */
-export const getLatestWeather = async (req: Request, res: Response) => {
+export const getLatestWeather = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { locationId } = req.params;
     const location = await LocationService.getLocationById(locationId);
 
     if (!location) {
-      return res.status(404).json({ error: `Location '${locationId}' not found.` });
+      return res.status(404).json({ success: false, error: `Location '${locationId}' not found.` });
+    }
+
+    if (!isAuthorizedForJurisdiction(req, location.jurisdictionId)) {
+      return res.status(403).json({
+        success: false,
+        error: `Forbidden: You are not authorized to view weather telemetry for location '${locationId}' in another district.`
+      });
     }
 
     const forecast = await OpenMeteoClient.getForecast(location.latitude, location.longitude);

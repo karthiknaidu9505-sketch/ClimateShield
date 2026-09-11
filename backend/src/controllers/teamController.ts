@@ -1,9 +1,27 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../config/db.js';
+import { AuthenticatedRequest, isAuthorizedForJurisdiction } from '../middlewares/authMiddleware.js';
 
-export const getTeams = async (_req: Request, res: Response) => {
+export const getTeams = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const requestedJurisdictionId = req.query.jurisdictionId as string | undefined;
+    const allowedJurisdictionIds = req.user?.authorizedJurisdictionIds || [];
+
+    const where: any = {};
+    if (requestedJurisdictionId) {
+      if (!isAuthorizedForJurisdiction(req, requestedJurisdictionId)) {
+        return res.status(403).json({
+          success: false,
+          error: `Forbidden: You are not authorized to view response teams for jurisdiction '${requestedJurisdictionId}'.`
+        });
+      }
+      where.jurisdictionId = requestedJurisdictionId;
+    } else {
+      where.jurisdictionId = { in: allowedJurisdictionIds };
+    }
+
     const teams = await prisma.responseTeam.findMany({
+      where,
       include: {
         members: true,
         incidents: {
@@ -12,53 +30,14 @@ export const getTeams = async (_req: Request, res: Response) => {
       }
     });
 
-    if (teams.length > 0) {
-      const parsedTeams = teams.map(team => ({
-        ...team,
-        equipment: typeof team.equipment === 'string' ? JSON.parse(team.equipment) : (team.equipment || [])
-      }));
+    const parsedTeams = teams.map(team => ({
+      ...team,
+      equipment: typeof team.equipment === 'string' ? JSON.parse(team.equipment) : (team.equipment || [])
+    }));
 
-      return res.json({ success: true, data: parsedTeams });
-    }
+    return res.json({ success: true, count: parsedTeams.length, data: parsedTeams });
   } catch (error: any) {
-    console.warn('Database query failed in getTeams, returning nominal teams:', error);
+    console.error('Error in getTeams:', error);
+    return res.status(500).json({ success: false, error: 'Failed to retrieve response teams.' });
   }
-
-  // Nominal fallback teams
-  return res.json({
-    success: true,
-    data: [
-      {
-        id: 'team-alpha-01',
-        name: 'Municipal Response Team A',
-        unitType: 'Rapid Hydro Unit',
-        leadName: 'Capt. Marcus Vance',
-        crewSize: 4,
-        status: 'EN_ROUTE',
-        eta: '6-8 minutes',
-        vehicleId: '#RH-04',
-        radioChannel: 'Channel 4 Active (TANGO-4-HYDRO)',
-        equipment: [
-          '2x 4-inch Submersible Sump Pumps',
-          'Traffic Cones & Deployable Barricades',
-          'Emergency Siphon Tubes'
-        ]
-      },
-      {
-        id: 'team-bravo-02',
-        name: 'Municipal Response Team B',
-        unitType: 'Civil Protection & Drainage Crew',
-        leadName: 'Lt. Sarah Chen',
-        crewSize: 6,
-        status: 'STANDBY',
-        eta: '14 minutes',
-        vehicleId: '#CP-09',
-        radioChannel: 'Channel 2 (BRAVO-DRAIN)',
-        equipment: [
-          'High-Capacity Trash Pumps',
-          'Inflatable Flood Barriers'
-        ]
-      }
-    ]
-  });
 };

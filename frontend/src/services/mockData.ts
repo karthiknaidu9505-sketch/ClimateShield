@@ -12,7 +12,7 @@ export const MOCK_USER = {
   name: 'Elena Vance',
   email: 'admin@climateshield.demo',
   role: 'Lead Operations Officer, District 4',
-  jurisdiction: 'Amalapuram / Metro District North',
+  jurisdiction: 'District Operations Command',
 };
 
 export const MOCK_TOKEN = 'demo-offline-jwt-token-climateshield-2024';

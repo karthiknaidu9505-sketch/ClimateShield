@@ -15,9 +15,11 @@ import {
 import { RiskMapView } from '../components/map/RiskMapView.js';
 import { locationService } from '../services/locationService.js';
 import { LocationItem } from '../types/index.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const RiskMap: React.FC = () => {
   const navigate = useNavigate();
+  const { user, primaryJurisdiction } = useAuth();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<LocationItem | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
@@ -39,15 +41,14 @@ export const RiskMap: React.FC = () => {
       try {
         const data = await locationService.getLocations();
         setLocations(data);
-        // Default selection to Railway Underpass
-        const underpass = data.find(l => l.name.toLowerCase().includes('railway')) || data[0];
-        if (underpass) setSelectedLocation(underpass);
+        const defaultLoc = data && data.length > 0 ? (data.find(l => l.name.toLowerCase().includes('railway')) || data[0]) : null;
+        if (defaultLoc) setSelectedLocation(defaultLoc);
       } catch (err) {
         console.error('Failed to load locations for Risk Map:', err);
       }
     }
     loadData();
-  }, []);
+  }, [user?.id, primaryJurisdiction]);
 
   const filteredLocations = locations.filter(loc => {
     if (severityFilter === 'ALL') return true;
@@ -84,7 +85,9 @@ export const RiskMap: React.FC = () => {
             <Building className="w-3.5 h-3.5 text-primary" />
             <div className="flex flex-col">
               <span className="text-[9px] text-outline uppercase font-bold leading-none">Municipal District</span>
-              <span className="text-xs font-bold text-on-surface leading-tight">Amalapuram &bull; North Corridor</span>
+              <span className="text-xs font-bold text-on-surface leading-tight">
+                {primaryJurisdiction ? primaryJurisdiction.replace(' Operations Command', '') : 'Monitored District'} &bull; Active Corridor
+              </span>
             </div>
           </div>
 

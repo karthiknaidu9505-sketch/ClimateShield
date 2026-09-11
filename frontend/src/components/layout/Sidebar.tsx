@@ -11,23 +11,28 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+import { useAuth } from '../../context/AuthContext.js';
+
 interface SidebarProps {
   activeIncidentId?: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeIncidentId = 'inc-railway-001' }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeIncidentId }) => {
   const navigate = useNavigate();
+  const { user, role, primaryJurisdiction, signOut } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('climateshield_token');
-    localStorage.removeItem('climateshield_user');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
+
+  const defaultIncidentId = user?.primaryJurisdictionId?.includes('tuni') ? 'inc-tuni-001' : 'inc-railway-001';
+  const targetIncidentId = activeIncidentId || defaultIncidentId;
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/risk-map', label: 'Risk Map', icon: Layers },
-    { to: `/incidents/${activeIncidentId}`, label: 'Incident Response', icon: ShieldAlert },
+    { to: `/incidents/${targetIncidentId}`, label: 'Incident Response', icon: ShieldAlert },
     { to: '/risk-history', label: 'Risk History', icon: History },
   ];
 
@@ -107,11 +112,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeIncidentId = 'inc-railwa
         {/* User Profile */}
         <div className="px-space-md py-space-sm flex items-center gap-space-sm bg-surface-container-lowest border-t border-[#e2e8df]">
           <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-sm border border-secondary/20 shrink-0">
-            EV
+            {user?.name ? user.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase() : 'OP'}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs text-on-surface font-bold truncate">Elena Vance</span>
-            <span className="text-[10px] text-on-surface-variant truncate font-medium">Lead Operations Officer, District 4</span>
+            <span className="text-xs text-on-surface font-bold truncate">{user?.name || 'Operations Officer'}</span>
+            <span className="text-[10px] text-on-surface-variant truncate font-medium">
+              {role === 'ADMIN' ? 'District Administrator' : 'District Operator'} • {primaryJurisdiction || 'Assigned District'}
+            </span>
           </div>
         </div>
       </div>

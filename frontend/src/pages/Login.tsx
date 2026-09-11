@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, ShieldAlert, Waves, Grid, Radio, Lock, ArrowRight, CheckCircle2, WifiOff } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Waves, Grid, Radio, Lock, ArrowRight, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('admin@climateshield.demo');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,13 +28,6 @@ export const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-
-  const fillDemoCreds = () => {
-    setEmail('admin@climateshield.demo');
-    setPassword('demo123');
-    setError('');
   };
 
   return (
@@ -159,28 +152,8 @@ export const Login: React.FC = () => {
                 </p>
               </div>
 
-              {/* Demo Credentials Helper Pill */}
-              <div className="mt-space-md p-3 bg-surface-container-low rounded-lg border border-[#e2e8df] flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-primary flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Demo Credentials Pre-filled</span>
-                  </div>
-                  <div className="text-[11px] text-on-surface-variant mt-0.5">
-                    admin@climateshield.demo / demo123
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={fillDemoCreds}
-                  className="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-
               {error && (
-                <div className="mt-3 p-2.5 bg-error-container text-on-error-container rounded text-xs font-semibold border border-error/20">
+                <div className="mt-4 p-2.5 bg-error-container text-on-error-container rounded text-xs font-semibold border border-error/20">
                   {error}
                 </div>
               )}
@@ -213,6 +186,7 @@ export const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-container-lowest border border-[#e2e8df] rounded text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="••••••••"
                   />
                 </div>
 

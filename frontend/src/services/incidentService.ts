@@ -9,15 +9,19 @@ let _mockIncidents = MOCK_INCIDENTS.map((inc) => ({
   notes: inc.notes.map((n) => ({ ...n })),
 }));
 
+function isAuthenticated(): boolean {
+  return !!localStorage.getItem('climateshield_token');
+}
+
 export const incidentService = {
   async getIncidents(): Promise<Incident[]> {
-    if (await isOfflineMode()) return _mockIncidents;
+    if (!isAuthenticated() && (await isOfflineMode())) return _mockIncidents;
     const res = await apiRequest<{ success: boolean; data: Incident[] }>('/incidents');
     return res.data;
   },
 
   async getIncidentById(id: string): Promise<Incident> {
-    if (await isOfflineMode()) {
+    if (!isAuthenticated() && (await isOfflineMode())) {
       const inc = _mockIncidents.find((i) => i.id === id);
       if (!inc) throw new Error(`Incident ${id} not found in mock data`);
       return inc;
@@ -34,7 +38,7 @@ export const incidentService = {
     responseTeamId?: string;
     summary?: string;
   }): Promise<Incident> {
-    if (await isOfflineMode()) {
+    if (!isAuthenticated() && (await isOfflineMode())) {
       const newInc: Incident = {
         id: `inc-${Date.now()}`,
         incidentNumber: `INC-2024-${String(Math.floor(Math.random() * 9000) + 1000)}`,
@@ -65,7 +69,7 @@ export const incidentService = {
   },
 
   async updateIncidentStatus(id: string, status: string, responseTeamId?: string): Promise<Incident> {
-    if (await isOfflineMode()) {
+    if (!isAuthenticated() && (await isOfflineMode())) {
       const inc = _mockIncidents.find((i) => i.id === id);
       if (!inc) throw new Error(`Incident ${id} not found`);
       inc.status = status as any;
@@ -84,7 +88,7 @@ export const incidentService = {
   },
 
   async toggleAction(actionId: string, isCompleted: boolean): Promise<ResponseAction> {
-    if (await isOfflineMode()) {
+    if (!isAuthenticated() && (await isOfflineMode())) {
       for (const inc of _mockIncidents) {
         const action = inc.actions.find((a) => a.id === actionId);
         if (action) {
@@ -103,14 +107,14 @@ export const incidentService = {
   },
 
   async addNote(incidentId: string, message: string, author?: string): Promise<IncidentNote> {
-    if (await isOfflineMode()) {
+    if (!isAuthenticated() && (await isOfflineMode())) {
       const inc = _mockIncidents.find((i) => i.id === incidentId);
       if (!inc) throw new Error(`Incident ${incidentId} not found`);
       const note: IncidentNote = {
         id: `note-${Date.now()}`,
         incidentId,
-        author: author ?? 'Elena Vance',
-        role: 'Lead Operations Officer',
+        author: author ?? 'District Operations Officer',
+        role: 'Operations Officer',
         message,
         createdAt: new Date().toISOString(),
       };
@@ -125,7 +129,7 @@ export const incidentService = {
   },
 
   async getTeams(): Promise<ResponseTeam[]> {
-    if (await isOfflineMode()) return MOCK_TEAMS;
+    if (!isAuthenticated() && (await isOfflineMode())) return MOCK_TEAMS;
     const res = await apiRequest<{ success: boolean; data: ResponseTeam[] }>('/teams');
     return res.data;
   },

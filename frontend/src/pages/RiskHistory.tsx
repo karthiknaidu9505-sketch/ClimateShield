@@ -16,10 +16,11 @@ import {
 import { apiRequest, isOfflineMode } from '../services/api.js';
 import { MOCK_HISTORY } from '../services/mockData.js';
 import { HistoryAnalytics } from '../types/index.js';
-
+import { useAuth } from '../context/AuthContext.js';
 
 export const RiskHistory: React.FC = () => {
   const navigate = useNavigate();
+  const { user, primaryJurisdiction } = useAuth();
   const [historyData, setHistoryData] = useState<HistoryAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -27,21 +28,26 @@ export const RiskHistory: React.FC = () => {
   useEffect(() => {
     async function loadHistory() {
       try {
-        if (await isOfflineMode()) {
+        const token = localStorage.getItem('climateshield_token');
+        if (!token && (await isOfflineMode())) {
           setHistoryData(MOCK_HISTORY);
         } else {
-          const res = await apiRequest<{ success: boolean; data: HistoryAnalytics }>('/history');
-          setHistoryData(res.data || (res as any));
+          const res = await apiRequest<{ success: boolean; data?: HistoryAnalytics; summary?: any; monthlyTrends?: any; recurringHotspots?: any; capitalDirective?: any }>('/history');
+          const data = (res as any).data || res;
+          setHistoryData(data);
         }
       } catch (err) {
         console.error('Failed to load risk history analytics:', err);
-        setHistoryData(MOCK_HISTORY);
+        const token = localStorage.getItem('climateshield_token');
+        if (!token) {
+          setHistoryData(MOCK_HISTORY);
+        }
       } finally {
         setLoading(false);
       }
     }
     loadHistory();
-  }, []);
+  }, [user?.id, primaryJurisdiction]);
 
 
   const summary = historyData?.summary || {
@@ -142,7 +148,9 @@ export const RiskHistory: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-surface-container-low px-3 py-1.5 rounded border border-[#e2e8df] text-xs">
             <Building className="w-3.5 h-3.5 text-primary" />
             <span className="text-[10px] text-on-surface-variant uppercase font-bold">District:</span>
-            <span className="font-bold text-on-surface">Amalapuram Region (Active)</span>
+            <span className="font-bold text-on-surface">
+              {primaryJurisdiction ? `${primaryJurisdiction.replace(' Operations Command', '')} (Active)` : 'Active District'}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 bg-surface-container-low px-3 py-1.5 rounded border border-[#e2e8df] text-xs">
             <Waves className="w-3.5 h-3.5 text-secondary" />
@@ -155,7 +163,7 @@ export const RiskHistory: React.FC = () => {
             <span className="font-bold text-on-surface">Last 12 Mo (Nov '23 - Oct '24)</span>
           </div>
         </div>
-        <span className="text-xs text-on-surface-variant">Active Scope: <strong>District 4 Core</strong></span>
+        <span className="text-xs text-on-surface-variant">Active Scope: <strong>{primaryJurisdiction ? primaryJurisdiction.replace(' Operations Command', '') : 'District Core'}</strong></span>
       </div>
 
       {/* 3. Summary Telemetry Readouts (4 Columns) */}
@@ -401,7 +409,7 @@ export const RiskHistory: React.FC = () => {
                 <span className="text-xs text-on-surface-variant">Infrastructure Vulnerability Audit</span>
               </div>
               <span className="text-[10px] bg-surface-container-low text-primary px-2 py-0.5 rounded font-bold uppercase">
-                Amalapuram Grid
+                {primaryJurisdiction ? `${primaryJurisdiction.replace(' Operations Command', '')} Grid` : 'Monitored Grid'}
               </span>
             </div>
 

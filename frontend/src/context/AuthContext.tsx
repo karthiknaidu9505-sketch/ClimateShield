@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient.js';
-import { MOCK_USER, MOCK_TOKEN, checkDemoCredentials } from '../services/mockData.js';
 import { apiRequest, isOfflineMode } from '../services/api.js';
 
 export interface AuthUser {
@@ -12,6 +11,7 @@ export interface AuthUser {
   organizationId?: string;
   primaryJurisdiction?: string;
   primaryJurisdictionId?: string;
+  authorizedJurisdictions?: string[];
   team?: string;
 }
 
@@ -20,6 +20,8 @@ interface AuthContextType {
   role: string;
   organization: string;
   primaryJurisdiction: string;
+  primaryJurisdictionId: string;
+  authorizedJurisdictions: string[];
   session: any | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -34,19 +36,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Initial check: Supabase Auth session if configured
+    // 1. Restore authenticated user profile from localStorage if present
+    const savedUser = localStorage.getItem('climateshield_user');
+    const savedToken = localStorage.getItem('climateshield_token');
+    if (savedUser && savedToken) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+      } catch {
+        setUser(null);
+        localStorage.removeItem('climateshield_user');
+        localStorage.removeItem('climateshield_token');
+      }
+    }
+
+    // 2. Check Supabase Auth session if configured
     if (isSupabaseConfigured) {
       supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
         if (currentSession?.user) {
           setSession(currentSession);
-          setUser({
-            id: currentSession.user.id,
-            name: currentSession.user.user_metadata?.full_name || 'Operations Officer',
-            email: currentSession.user.email || '',
-            role: currentSession.user.user_metadata?.role || 'OPERATOR',
-            organization: currentSession.user.user_metadata?.organization || 'Amalapuram Municipal Corporation',
-            primaryJurisdiction: currentSession.user.user_metadata?.primaryJurisdiction || 'Amalapuram Region'
-          });
           localStorage.setItem('climateshield_token', currentSession.access_token);
         }
         setLoading(false);
@@ -54,35 +62,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
         setSession(newSession);
-        if (newSession?.user) {
-          setUser({
-            id: newSession.user.id,
-            name: newSession.user.user_metadata?.full_name || 'Operations Officer',
-            email: newSession.user.email || '',
-            role: newSession.user.user_metadata?.role || 'OPERATOR',
-            organization: newSession.user.user_metadata?.organization || 'Amalapuram Municipal Corporation',
-            primaryJurisdiction: newSession.user.user_metadata?.primaryJurisdiction || 'Amalapuram Region'
-          });
+        if (newSession?.access_token) {
           localStorage.setItem('climateshield_token', newSession.access_token);
-        } else {
+        } else if (!newSession) {
           setUser(null);
           localStorage.removeItem('climateshield_token');
+          localStorage.removeItem('climateshield_user');
         }
       });
 
       return () => subscription.unsubscribe();
     }
 
-    // 2. Demo / offline mode session restoration
-    const savedUser = localStorage.getItem('climateshield_user');
-    const savedToken = localStorage.getItem('climateshield_token');
-    if (savedUser && savedToken) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        setUser(MOCK_USER as any);
-      }
-    }
     setLoading(false);
   }, []);
 
@@ -91,68 +82,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.toLowerCase().trim();
 
     try {
-      // Step A: If Supabase Auth is active, attempt Supabase authentication
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password
-        });
-
-        if (!error && data.session) {
-          const authUser: AuthUser = {
-            id: data.user.id,
-            name: data.user.user_metadata?.full_name || 'Operations Officer',
-            email: data.user.email || cleanEmail,
-            role: data.user.user_metadata?.role || 'OPERATOR',
-            organization: 'Amalapuram Municipal Corporation',
-            primaryJurisdiction: 'Amalapuram Region'
-          };
-          setUser(authUser);
-          setSession(data.session);
-          localStorage.setItem('climateshield_token', data.session.access_token);
-          localStorage.setItem('climateshield_user', JSON.stringify(authUser));
-          return { success: true };
-        }
-      }
-
-      // Step B: If backend is online, attempt backend login endpoint
+      // Step A: First attempt Express Backend Authentication (verifies Supabase JWT + loads multi-tenant DB profile)
       const offline = await isOfflineMode();
       if (!offline) {
         try {
-          const res = await apiRequest<{ success: boolean; token: string; user: any }>('/auth/login', {
+          const res = await apiRequest<{ success: boolean; token: string; user: AuthUser }>('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email: cleanEmail, password })
           });
-          if (res.token) {
+
+          if (res.token && res.user) {
             setUser(res.user);
             localStorage.setItem('climateshield_token', res.token);
             localStorage.setItem('climateshield_user', JSON.stringify(res.user));
+
+            // Sync client Supabase Auth session if configured
+            if (isSupabaseConfigured) {
+              await supabase.auth.signInWithPassword({ email: cleanEmail, password }).catch(() => {});
+            }
+
             return { success: true };
           }
-        } catch {
-          // Fall through to demo credential check
+        } catch (apiErr: any) {
+          return {
+            success: false,
+            error: apiErr.message || 'Authentication failed. Please verify credentials.'
+          };
         }
       }
 
-      // Step C: Resilient Demo fallback (preserves offline review)
-      if (checkDemoCredentials(cleanEmail, password)) {
+      // Step B: Resilient Demo fallback when running in pure offline demonstration mode
+      if (cleanEmail === 'admin@climateshield.demo' && password === 'demo123') {
         const demoUser: AuthUser = {
           id: 'user-elena-vance',
           name: 'Elena Vance',
           email: 'admin@climateshield.demo',
           role: 'OPERATOR',
           organization: 'Amalapuram Municipal Corporation',
-          primaryJurisdiction: 'Amalapuram Region'
+          organizationId: 'org-amalapuram-mc',
+          primaryJurisdiction: 'Amalapuram Region Operations Command',
+          primaryJurisdictionId: 'jur-amalapuram-region',
+          authorizedJurisdictions: ['jur-amalapuram-region']
         };
         setUser(demoUser);
-        localStorage.setItem('climateshield_token', MOCK_TOKEN);
+        localStorage.setItem('climateshield_token', 'demo-jwt-session-token-climateshield-2024');
         localStorage.setItem('climateshield_user', JSON.stringify(demoUser));
+        return { success: true };
+      }
+
+      if (cleanEmail === 'operator.tuni@climateshield.demo' && password === 'demo123') {
+        const tuniUser: AuthUser = {
+          id: 'user-ravi-kumar-tuni',
+          name: 'Ravi Kumar',
+          email: 'operator.tuni@climateshield.demo',
+          role: 'OPERATOR',
+          organization: 'Tuni Municipal Corporation',
+          organizationId: 'org-tuni-mc',
+          primaryJurisdiction: 'Tuni District Operations Command',
+          primaryJurisdictionId: 'jur-tuni-district',
+          authorizedJurisdictions: ['jur-tuni-district']
+        };
+        setUser(tuniUser);
+        localStorage.setItem('climateshield_token', 'demo-tuni-jwt-session-token');
+        localStorage.setItem('climateshield_user', JSON.stringify(tuniUser));
         return { success: true };
       }
 
       return {
         success: false,
-        error: 'Invalid credentials. Use admin@climateshield.demo / demo123 for demo access.'
+        error: 'Invalid credentials. Use official municipal credentials.'
       };
     } finally {
       setLoading(false);
@@ -160,13 +158,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    // Clear in-memory React state immediately
+    setUser(null);
+    setSession(null);
+
+    // Clear local storage and session storage
+    localStorage.removeItem('climateshield_token');
+    localStorage.removeItem('climateshield_user');
+    sessionStorage.clear();
+
+    // Terminate Supabase Auth session if configured
     if (isSupabaseConfigured) {
       await supabase.auth.signOut().catch(() => {});
     }
-    setUser(null);
-    setSession(null);
-    localStorage.removeItem('climateshield_token');
-    localStorage.removeItem('climateshield_user');
   };
 
   return (
@@ -174,8 +178,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         role: user?.role || 'OPERATOR',
-        organization: user?.organization || 'Amalapuram Municipal Corporation',
-        primaryJurisdiction: user?.primaryJurisdiction || 'Amalapuram Region',
+        organization: user?.organization || '',
+        primaryJurisdiction: user?.primaryJurisdiction || '',
+        primaryJurisdictionId: user?.primaryJurisdictionId || '',
+        authorizedJurisdictions: user?.authorizedJurisdictions || [],
         session,
         loading,
         signIn,

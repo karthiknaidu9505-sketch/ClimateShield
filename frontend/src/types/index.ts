@@ -165,6 +165,11 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  organization?: string;
+  organizationId?: string;
+  primaryJurisdiction?: string;
+  primaryJurisdictionId?: string;
+  authorizedJurisdictions?: string[];
   jurisdiction?: string;
   team?: string;
 }

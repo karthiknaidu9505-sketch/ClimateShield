@@ -15,25 +15,20 @@ import {
 } from '../controllers/incidentController.js';
 import { getTeams } from '../controllers/teamController.js';
 import { getRiskHistory } from '../controllers/historyController.js';
-import { optionalAuth } from '../middlewares/authMiddleware.js';
+import { requireAuth } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
-// Apply optional authentication context to all API routes
-router.use(optionalAuth as any);
-
-// Authentication
+// ── Public Routes ─────────────────────────────────────────────
 router.post('/auth/login', login);
 
-// Weather Ingestion & Synchronization (Phase 2)
-router.get('/weather/sync', syncWeather);
-router.post('/weather/sync', syncWeather);
-router.get('/weather/latest/:locationId', getLatestWeather);
+// ── Protected Multi-Tenant Routes (Require Supabase JWT) ──────
+router.use(requireAuth as any);
 
-// Jurisdictions & Regional Multi-Tenancy
+// Jurisdictions & Regional Multi-Tenancy (Scoped to authorized jurisdictions)
 router.get('/jurisdictions', getJurisdictions);
 
-// Locations & Vulnerable Sites
+// Locations & Vulnerable Sites (District-scoped with IDOR prevention)
 router.get('/locations', getLocations);
 router.get('/locations/:id', getLocationById);
 
@@ -41,7 +36,7 @@ router.get('/locations/:id', getLocationById);
 router.get('/risk/:locationId', getRiskByLocationId);
 router.post('/risk/calculate', calculateCustomRisk);
 
-// Emergency Incidents
+// Emergency Incidents (District-scoped with IDOR protection)
 router.get('/incidents', getIncidents);
 router.get('/incidents/:id', getIncidentById);
 router.post('/incidents', createIncident);
@@ -53,10 +48,15 @@ router.patch('/incidents/any/actions/:actionId', updateIncidentAction);
 router.patch('/incidents/:id/actions/:actionId', updateIncidentAction);
 router.post('/incidents/:id/notes', addIncidentNote);
 
-// Response Units & Telemetry
+// Response Units & Telemetry (District-scoped)
 router.get('/teams', getTeams);
 
-// Long-Term Risk History & Resilience Intelligence
+// Long-Term Risk History & Resilience Intelligence (District-scoped)
 router.get('/history', getRiskHistory);
+
+// Weather Ingestion & Synchronization
+router.get('/weather/sync', syncWeather);
+router.post('/weather/sync', syncWeather);
+router.get('/weather/latest/:locationId', getLatestWeather);
 
 export default router;

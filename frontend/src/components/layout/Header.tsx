@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, AlertTriangle, Bell, ShieldAlert, WifiOff } from 'lucide-react';
 import { isOfflineMode } from '../../services/api.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface HeaderProps {
   districtName?: string;
@@ -10,12 +11,15 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  districtName = 'Amalapuram Region',
-  sectorName = 'Sector 7 & 4B',
+  districtName,
+  sectorName = 'Operations Sector',
   alertText = 'Rainfall Alert: Level 3 Convective Inundation',
   notificationCount = 3
 }) => {
   const [offline, setOffline] = useState(false);
+  const { user, primaryJurisdiction } = useAuth();
+
+  const activeDistrict = districtName || primaryJurisdiction || 'Operations Command';
 
   useEffect(() => {
     isOfflineMode().then(setOffline);
@@ -36,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Location / District Badge */}
           <div className="flex items-center gap-2 bg-surface-container-low px-space-sm py-1.5 rounded border border-[#e2e8df]">
             <MapPin className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-bold text-on-surface">{districtName}</span>
+            <span className="text-xs font-bold text-on-surface">{activeDistrict}</span>
             <span className="text-xs text-outline">•</span>
             <span className="text-xs text-on-surface-variant font-medium">{sectorName}</span>
           </div>
@@ -75,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* User Icon Badge */}
           <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container font-bold text-xs flex items-center justify-center border border-secondary/30">
-            EV
+            {user?.name ? user.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase() : 'OP'}
           </div>
         </div>
       </div>

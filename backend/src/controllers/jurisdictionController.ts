@@ -1,9 +1,15 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../config/db.js';
+import { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 
-export const getJurisdictions = async (_req: Request, res: Response) => {
+export const getJurisdictions = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const allowedJurisdictionIds = req.user?.authorizedJurisdictionIds || [];
+
     const jurisdictions = await prisma.jurisdiction.findMany({
+      where: {
+        id: { in: allowedJurisdictionIds }
+      },
       include: {
         organization: true,
         zones: true,
@@ -15,35 +21,6 @@ export const getJurisdictions = async (_req: Request, res: Response) => {
         }
       }
     });
-
-    // If database has no jurisdictions yet, provide the primary Amalapuram operational jurisdiction
-    if (jurisdictions.length === 0) {
-      return res.json({
-        success: true,
-        count: 1,
-        data: [
-          {
-            id: 'jur-amalapuram-region',
-            organizationId: 'org-amalapuram-mc',
-            organization: {
-              id: 'org-amalapuram-mc',
-              name: 'Amalapuram Municipal Corporation',
-              code: 'AMC-AP'
-            },
-            name: 'Amalapuram Region',
-            code: 'AMALAPURAM-REGION',
-            centerLat: 16.5787,
-            centerLng: 82.0061,
-            zones: [
-              { id: 'zone-sector-7', name: 'Sector 4B / Sector 7', code: 'SEC-7', drainageRating: 'POOR' },
-              { id: 'zone-sector-2', name: 'Sector 2 Commercial Arterial', code: 'SEC-2', drainageRating: 'MODERATE' }
-            ],
-            activeIncidents: 1,
-            locationCount: 4
-          }
-        ]
-      });
-    }
 
     const formatted = jurisdictions.map(j => ({
       id: j.id,
@@ -61,28 +38,6 @@ export const getJurisdictions = async (_req: Request, res: Response) => {
     return res.json({ success: true, count: formatted.length, data: formatted });
   } catch (error: any) {
     console.error('Error fetching jurisdictions:', error);
-    // Fallback response for offline resilience
-    return res.json({
-      success: true,
-      count: 1,
-      data: [
-        {
-          id: 'jur-amalapuram-region',
-          organizationId: 'org-amalapuram-mc',
-          organization: {
-            id: 'org-amalapuram-mc',
-            name: 'Amalapuram Municipal Corporation',
-            code: 'AMC-AP'
-          },
-          name: 'Amalapuram Region',
-          code: 'AMALAPURAM-REGION',
-          centerLat: 16.5787,
-          centerLng: 82.0061,
-          zones: [],
-          activeIncidents: 1,
-          locationCount: 4
-        }
-      ]
-    });
+    return res.status(500).json({ success: false, error: 'Failed to retrieve jurisdictions.' });
   }
 };
